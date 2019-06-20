@@ -1,0 +1,141 @@
+---
+title: "Introduction of R"
+subtitle: "How to import and play with the data on R"
+author: Yura SONG
+output: html_notebook
+---
+
+## Introduction
+In this notebook, as an introduction of R, I will explain to you how to import files on the R global environment and play with the data. Since R is mainly working with *function*, which has same concept with *command* in DOS or LINUX. We will start to learn how to use the functions to play on R.
+
+Befiore starting the steps, if you would like to see the help or description of each function, what we could use is question mark. We could write as "?(function)" and example is as below.
+```{r}
+?getwd
+```
+
+## Dealing with the Dataset
+
+### Working Directory and files
+Before starting the work on R, what we should check is current **location**, where you are working in the system. On R, the working directory should be same as where you put your files. If the current directory and the location of file is different, the system may show the error message.
+
+To check my current directory, we could use *getwd* function, which means get working directory.
+```{r}
+getwd()
+```
+
+However, if your current location is not where you put your files? Then you could use *setwd* function, which means set working directory. In this case, you should put the **address of the target folder**.
+```{r}
+setwd("~/Desktop/R example")
+```
+
+So, now we are in the directory where we put the files. If you want to check which file is included in the directory which has been set as working directory, you could use *list.files* function.
+```{r}
+list.files()
+```
+
+So, there are two .csv files, one R notebook and html files. The two .csv files are the rawcount of RNA-seq, which includes the gene accession number and expression values of several samples.
+
+###Import and check the data
+Now we are in the directory with the files. What we could do on R is import the data. However, the .xlsx (excel worksheet) is not portable on R and RStudio, so you should save the data as .csv or .txt format. If not, it may not read properly so the data would be broken.
+
+When you want to import the data in R, we could use *read.delim* or *read.table* function. Both does not have that difference, but *read.table* only reads the data with table format, as like excel sheet. However, in case of *read.delim*, it reads all the files which is deliminated by something, such as comma or tab. So, in my case, I highly recommend to use *read.delim*.
+
+Since we have two files in the folder, let's import one file first. Whenever you import the files into R, you should give the name to each job. If not, R may not save on environment, just print on the console. 
+```{r}
+count <- read.delim("rawcount.csv", h=T, sep=",")
+```
+
+Let's see the command line which I have used. So in *read.delim*, the first one in the quotation mark is the name of file which we want to import on R. **h** means whether it has header or not, so your data has the information of each column on the first line, this should be T(means TRUE). **sep** means how the data is deliminated, such as tab-deliminated or comma. This could be checked on excel, when you save your data because it may ask you which deliminator you would like to use.
+
+Also, when we import the data, on R, it will be called as the given name "count". The arrow means that I would like to give the name to imported data and it is necessary since we could use the imported data without given name.
+
+If it does not make any errors, the data is well imported. However, if you would like to check the format of data, what we could use is *head* function. It will show the first six lines of imported data.
+```{r}
+head(count)
+```
+
+So, the data is well imported. However, if you want to check the full table, on another window, what you could use is *View* function. It will give you the whole datasets with scroll bar.
+```{r}
+View(count)
+```
+
+Sometimes, in the data, the duplicated value could be included. Since more than two times of same data may make the work taking longer time, we need to filter them out. In this case, *unique* function is used.
+```{r}
+count <- unique(count)
+```
+
+### Subset the files
+Sometimes when we deal with the sequencing data, what we want to do is selecting some variables, not taking all. It is also available on R, it is different from selecting one value or several values in one.
+
+We will work on the same datasets which we already imported. For instance, among the count value, we will only select the data from sample B. In this case, we could use dollar sign.
+```{r}
+head(count$B)
+```
+
+It only shows the values corresponding to the B. However, if we would like to include GeneID to sample B, it may not work with $ sign since it is not only one column we would like to select. In this case, we use bracket, [].
+
+In bracket, what we will do is setting the columns which we would like to select. If they are all continue, what we should do is give a input of the order of column in the bracket. In bracket, the order is [row, column].
+
+Since GeneID to sample B corresponds to Column 1 to 3, and we would like to take all the rows, what we could set is as below. 
+```{r}
+head(count[,1:3])
+```
+
+What if we would like to get the values of certain row and certain column? For instance, if we would like to get the first six rows and sample A and B?
+```{r}
+count[1:6, 1:3]
+```
+
+However, sometimes we could want to get the separated columns, such as B and D. Then we could use *c()*, it means that binding the several variables as a one set.
+```{r}
+head(count[,c(2,4)])
+```
+
+### Merge two files into one
+Sometimes, we need to make one file from two different files. If we are doing it on excel, it may take a long time since you should compare one by one. However, on R, if you have same criteria in each file, we could use the common factor as a standard for merging two files.
+
+Since we have another expression file in the directory, we will import it on R.
+```{r}
+count_1 <- read.delim("rawcount2.csv", h=T, sep=",")
+```
+
+Before merging two files, what we should check is whether the two files are sharing **common columns or row**. In this case, we could briefly check by *names* function, it will show the name of each column. This function only works with the data who has header.
+```{r}
+names(count)
+```
+
+```{r}
+names(count_1)
+```
+
+Since these two files are sharing the "GeneID", we could use it for the standard. In this case, we use *merge* function.
+```{r}
+mer <- merge(count, count_1, by.x="GeneID", by.y="GeneID", all.x=FALSE)
+```
+
+In merge function, we should clarify two datasets which we would like to merge. **by.x** and **by.y** specifies the columns used for merging, the common columns between two data. Last one is the logical value, **FALSE** means that only rows with data from both x and y are included in the output and it is default setting. If we give it as **TRUE**, then extra rows will be added to the output.
+
+Let's how the files are merged.
+```{r}
+head(mer)
+```
+
+### Export 
+Now all the datasets are coming into one data. What we could do is export this result as a table, the format of .csv or .txt to use it on excel for further work. In this case, we usually use *write.table* format and we should clarify the format of file and deliminator.
+```{r}
+write.table(mer, "Merged_data.csv", quote=F, sep=",", row.names=F, col.names=T)
+```
+
+In this case, there would be more variables to clarify. First one is the data which we would like to export, and second one is the name and format of file. **quote** is a logical value, if it is T, all the values will be in quotation mark. **row.names** and **col.names** indicate whether the row and column name will be written or not, in our case, we only have column name. Therefore, the row.names is false and col.names is true.
+
+Also, after the work, you may want to save what you did on R. In this case we should save two files.
+```{r}
+save.image("Files.RData")
+```
+
+We could save the image of environment in **.RData** file, it saves all the data. Therefore, in next time, if we call this file on R, you could continue your job without importing all datasets which you have used.
+
+```{r}
+savehistory("Files_work.Rhistory")
+```
+Also, if you want to save all the functions which you have used during the process on R, you could save it as a text format into *.Rhistory* format. It also could be imported when you open R, and you could use it to track what you have done in previous job.
