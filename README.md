@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This R coursework repository is not from some course held in university, and all are generated for the people who would like to start dealing with their own data on R by themselves, especially the lab where I am working now.
+This R coursework repository is not from some course held in university, and all are generated for the people who would like to start dealing with their own data on R by themselves, especially working in the lab where I am working now.
 
 Please do not copy the contents or use it as the material of coursework. 
 
