@@ -1,0 +1,83 @@
+---
+title: "Introduction to R"
+subtitle: "Install and attach packages"
+author: Yura SONG
+output: html_notebook
+---
+
+## Introduction
+
+In previous step, as a very beginning, we have tried to play with a set of data on R. Not only dealing with the data in table format, what we could do is analysis or drawing a plot with several functions. 
+
+Furthermore, R provides a lot of **packages**, the fundamental units of reproducible R codes. They include reusable R functions, the documentation that describes how to use them, and sample data. In other words, it is a kind of program which we are using for certain purpose. As of January 2015, there were over 6,000 packages available on the **C**omprehensive **R** **A**rchive **N**etwork, or CRAN, the public clearing house for R packages. 
+
+## Utilize packages
+ 
+### Install packages from CRAN
+
+To use the packages which we need, the first step is **installation** of packages. You could find the [list of available packages on CRAN mirror](https://cran.r-project.org/web/packages/available_packages_by_name.ht). It includes the brief description of each packages, so you could find the best one which you need.
+
+For instance, in this step, we will install the package called *ggplot2*, which will be used broadly when generating plots. To install the package, *install.package* function is used.
+```{r}
+install.packages("ggplot2")
+```
+
+If you would like to install several packages in a row, we could use **c()** command to bind several packages as one set.
+```{r}
+install.packages(c("ggplot2", "ggfortify", "gapminder"))
+```
+
+Since you put this *install.package* function with the name of package, the system will automatically start installation. Sometimes it may ask you which CRAN mirror to be used for installation, I highly recommend to choose **BELGIUM (Ghent)** because their library is already stable. If the error occurs, it would be better to copy the error message to google and check the list of sites on the five top. Most of people already had a same issue before and the others may share how they solved it.
+
+### Attach installed packages
+
+If the installation is finished, what we should do is **attach** the packages. It is a step to call the all the codes into R session, so you could use it directly. If you already installed your package, afterward, what you need to do is attachment.
+
+For attach the packages, the function *library* is used. Let's see the example.
+```{r}
+library(ggplot2)
+```
+
+When attaching packages, some shows the message as like this but others are not. However, it is not error message nor report. Therefore, the package is well attached and ready to be used.
+
+If you would like to call the several packages at one time, it is still possible but you could not use c() to bind the packages. You should put the one package in one *library* function.
+```{r}
+library(ggplot2)
+library(ggfortify)
+library(gapminder)
+```
+
+## Package from Bioconductor
+
+**Before starting this, your R version should be 3.6, the latest version.**
+
+Not like the general packages available on CRAN, most of bioinformatics-related packages are available via [Bioconductor](https://bioconductor.org/). For instance, DESeq2 for differential gene expression analysis is a part of Bioconductor project.
+
+To install the packages which is available via Bioconductor, we could not use it by *install.packages*. If we try to install the package belongs to the Bioconductor project, R automatically stops the installation with warning message.
+```{r}
+install.packages("GenomicFeatures")
+```
+
+### Install the packages via Bioconductor
+
+Before starting the installation, we could get the list of available packages. As June 2019, there are around 1600 packages available.
+```{r}
+BiocManager::available()
+```
+
+To install the packages of Bioconductor, we should install the **BiocManager** package. If *BiocManager* is not installed on the system, it will automatically install it. Also, the BiocManager package serves as the primary way to ensure that the appropriate Bioconductor installation is used with respect to the version of R in use regardless of the R and Bioconductor release cycles.
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+```
+
+If the BiocManager is ready, we could install the bioconductor packages as below. Also, if you would like to install several packages, you could use **c()** to indicate that you would like to install several packages at once.
+```{r}
+BiocManager::install("AnnotationDbi")
+```
+
+Why use BiocManager::install()? Bioconductor has a repository and release schedule that differs from R (Bioconductor has a different branch to which new packages and updates are introduced, and a stable ‘release’ branch emitted once every 6 months to which bug fixes but not new features are introduced).
+
+A consequence of the mismatch between R and Bioconductor release schedules is that the Bioconductor version identified by install.packages() is sometimes not the most recent ‘release’ available. For instance, an R minor version may be introduced some months before the next Bioc release. After the Bioc release the users of the R minor version will be pointed to an out-of-date version of Bioconductor.
+
+I think we are almost ready to start the making figures and analysis on R! In next step, we will try to draw some figures with basic functions of R. See you then!
