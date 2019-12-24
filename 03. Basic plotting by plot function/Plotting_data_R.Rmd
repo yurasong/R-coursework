@@ -1,0 +1,306 @@
+---
+title: "Plotting the data with R"
+output: html_notebook
+---
+
+# Introduction
+
+We look at some of the ways R can display information graphically, after dealing with our dataset on R session. Here, I will introduce some basic plotting commands with *built-in dataset*, called **airquality**. In other words, we do not need any data import in this time.
+
+```{r built-in data import}
+data(airquality)
+str(airquality)
+```
+
+
+# Basic plot
+
+## Strip Charts
+
+A strip chart is the most basic type of plot available. It plots the data in order along a line with each data point represented as a box. Since we have imported data, we will make a strip chart for ozone reading.
+
+```{r stripchart}
+stripchart(airquality$Ozone)
+```
+
+We can see that the data is mostly cluttered below 50 with one falling outside 150. However, we could pass some additional parameters to control the way how plot looks like. You can read about them in the help section by using question mark.
+
+```{r help}
+?stripchart
+```
+
+## Adjust strip chart
+
+Some of the frequently used ones are, **main** to give the title, **xlab and ylab** to provide labels for the axes, **method** to specify the way coincident points are plotted like stacked or jitter, **col** to define color etc. Additionally, with the argument **vertical=TRUE** we can plot it vertically and with pch we can specify the plotting character (square by default). Some values of **pch** are 0 for square, 1 for circle, 2 for triangle etc. You can see the full list in the help section *?points*.
+
+What if we try to use several parameters? Let's try to setting the **jitter** for the method and giving details.
+```{r jitter}
+stripchart(airquality$Ozone,
+main="Mean ozone in parts per billion at Roosevelt Island",
+xlab="Parts Per Billion",
+ylab="Ozone",
+method="jitter",
+col="orange",
+pch=1
+)
+```
+
+## Multiple Strip Charts
+
+We can draw multiple strip charts in a single plot, by passing in a list of numeric vectors.
+
+Let us consider the *Temp* field of *airquality* dataset. Let us also generate normal distribution with the same mean and standard deviation and plot them side by side for comparison.
+
+```{r data preparation}
+# prepare the data
+temp <- airquality$Temp
+# gererate normal distribution with same mean and sd
+tempNorm <- rnorm(200,mean=mean(temp, na.rm=TRUE), sd = sd(temp, na.rm=TRUE))
+# make a list
+x <- list("temp"=temp, "norm"=tempNorm)
+```
+
+Now we us make two stripcharts with this list in one chart.
+
+```{r strip chart}
+stripchart(x,
+main="Multiple stripchart for comparision",
+xlab="Degree Fahrenheit",
+ylab="Temperature",
+method="jitter",
+col=c("orange","red"),
+pch=16
+)
+```
+
+## Strip Chart from Formula
+
+Stripchart function also takes in formulas of the form **y ~ x** where, y is a numeric vector which is grouped according to the value of x. For example, in our dataset airquality, the Temp can be our numeric vector. Month can be our grouping variable, so that we get the strip chart for each month separately. In airquality dataset, month is in the form of number (1=January, 2-Febuary and so on).
+
+```{r}
+stripchart(Temp~Month,
+data=airquality,
+main="Different strip chart for each month",
+xlab="Months",
+ylab="Temperature",
+col="brown3",
+group.names=c("May","June","July","August","September"),
+vertical=TRUE,
+pch=16
+)
+```
+
+# Boxplot 
+
+A boxplot provides a graphical view of the median, quartiles, maximum, and minimum of a data set, by taking in any number of numeric vectors.
+
+Let's start with the basic boxplot with Ozone readings from airquality data.
+```{r}
+boxplot(airquality$Ozone)
+```
+
+We can see that data above the median is more dispersed. We can also notice two outliers at the higher extreme. Like strip chart, we could adjust parameters with same parameters we used.
+
+## Adjusting the plot
+
+```{r}
+boxplot(airquality$Ozone,
+main = "Mean ozone in parts per billion at Roosevelt Island",
+xlab = "Parts Per Billion",
+ylab = "Ozone",
+col = "orange",
+border = "brown",
+horizontal = TRUE,
+notch = TRUE
+)
+```
+
+## Return the value of boxplot
+
+What if we would like to return the values plotted on boxplot? Here, we could get some information regarding the values on the boxplot by giving the variable to the plot.
+```{r}
+b <- boxplot(airquality$Ozone)
+b
+```
+
+As we could see above, a list is returned. 
+  - stats: position of the upper/lower extremes of the whiskers and box along the median
+  - n: the number of observations the boxplot is drawn with (NA value is not counted)
+  - conf: upper/lower extremes of the notch
+  - out: value of the outliers
+  - group: a vector of the same length as out whose elements indicate to which group the outlier belongs
+  - names: a vector of names for the groups
+  
+## Multiple plots
+
+We can draw multiple boxplots in a single plot, by passing in a list, data frame or multiple vectors, as we did on strip chart. Let us consider the Ozone and Temp field of airquality dataset. Let us also generate normal distribution with the same mean and standard deviation and plot them side by side for comparison.
+```{r}
+# prepare the data
+ozone <- airquality$Ozone
+temp <- airquality$Temp
+# gererate normal distribution with same mean and sd
+ozone_norm <- rnorm(200,mean=mean(ozone, na.rm=TRUE), sd=sd(ozone, na.rm=TRUE))
+temp_norm <- rnorm(200,mean=mean(temp, na.rm=TRUE), sd=sd(temp, na.rm=TRUE))
+```
+
+Now we us make 4 boxplots with this data. We use the arguments **at** and **names** to denote the place and label.
+```{r}
+boxplot(ozone, ozone_norm, temp, temp_norm,
+main = "Multiple boxplots for comparision",
+at = c(1,2,4,5),
+names = c("ozone", "normal", "temp", "normal"),
+las = 2,
+col = c("orange","red"),
+border = "brown",
+horizontal = TRUE,
+notch = TRUE
+)
+```
+
+## Boxplot from formula
+```{r}
+boxplot(Temp~Month,
+data=airquality,
+main="Different boxplots for each month",
+xlab="Month Number",
+ylab="Degree Fahrenheit",
+col="orange",
+border="brown"
+)
+```
+
+# Histogram
+
+A histogram is very common plot. It plots the frequencies that data appears within certain ranges. On R, histogram can be created using the *hist()* function. This function takes in a vector of values for which the histogram is plotted.
+
+## Simple histogram
+```{r}
+Temperature <- airquality$Temp
+hist(Temperature)
+```
+We can see above that there are 9 cells with equally spaced breaks. In this case, the height of a cell is equal to the number of observation falling in that cell.
+
+## Histogram with parameters
+
+Still the parameters are same as the previous two plots, there is several additional parameters to give. For instance, **col** to define color and the argument **freq=F** to get the probability distribution rather than frequency.
+```{r}
+# histogram with added parameters
+hist(Temperature,
+main="Maximum daily temperature at La Guardia Airport",
+xlab="Temperature in degrees Fahrenheit",
+xlim=c(50,100),
+col="darkmagenta",
+freq=FALSE
+)
+```
+
+Since we set **freq=F**, y-axis label is density, not frequency. In this case, the total area of the histogram is 1.
+
+## Return value of histogram
+```{r}
+h <- hist(Temperature)
+h
+```
+
+Although the strategy is same, but the result is a little different from previous. The meaning of each class is
+  - breaks: places where the breaks occur
+  - counts: the number of observations falling in the cell
+  - density: the density of cells
+  - mids: the midpoints of cells
+  - xname: the x argument name
+  - equidist: a logical value indicating if the breaks are equally spaced
+  
+## Use return value for labels using *text()*
+```{r}
+h <- hist(Temperature,ylim=c(0,40))
+text(h$mids,h$counts,labels=h$counts, adj=c(0.5, -0.5))
+```
+
+## Defining the number of breaks
+
+With the **break** argument, we could specify the number of cells we want in the histogram. If we do not give value for **break**, R calculates the best number of cells, keeping this suggestion in mind. Following are two histograms on the same data with different number of cells.
+
+```{r}
+par(mfrow=c(1,2))
+hist(Temperature, breaks=4, main="With breaks=4")
+hist(Temperature, breaks=20, main="With breaks=20")
+```
+
+n the above figure we see that the actual number of cells plotted is greater than we had specified.
+
+We can also define breakpoints between the cells as a vector. This makes it possible to plot a histogram with unequal intervals. In such case, the area of the cell is proportional to the number of observations falling inside that cell.
+
+## Histogram with non-uniform width
+
+If we would like to give different cell width, what we could set is **break** but ot uniform interval.
+
+```{r}
+hist(Temperature,
+main="Maximum daily temperature at La Guardia Airport",
+xlab="Temperature in degrees Fahrenheit",
+xlim=c(50,100),
+col="chocolate",
+border="brown",
+breaks=c(55,60,70,75,80,100)
+)
+```
+
+# Scatter plots
+
+A scatter plot provides a graphical view of the relationship between two sets of numbers.
+```{r}
+plot(airquality$Temp, airquality$Ozone)
+```
+
+## Histogram with parameters
+
+It is always common that the parameters could be adjusted. The parameters are same as strip chart.
+```{r}
+plot(airquality$Temp, airquality$Ozone, col="red", pch =19, main="Relationship between Ozone reading and temperature")
+```
+
+## Plotting scatter plot for more than two variables
+
+Since scatter plot is used to visualize the relationship between two variables, it is not proper to plot several variables in one plot. However, by creating a matrix of scatterplots, we could see the relationship between several variables.
+```{r}
+pairs(airquality[,1:4])
+```
+
+# Pie Chart
+
+The last plot we would try is **pie chart**. It is drawn using the **pie** function in R programming . This function takes in a vector of non-negative numbers. Here, since the airquality dataset is not proper for plotting pie chart, we will generate some dataset by ourselves.
+
+## Simple pie chart
+
+```{r}
+slices <- c(10, 12,4, 16, 8)
+lbls <- c("US", "UK", "Australia", "Germany", "France")
+
+pie(slices, labels = lbls, main="Pie Chart of Countries")
+```
+
+It is kind of basic form, however, it is a little hard to get the ratio on the plot. What if we could add the percentage value with the annotation?
+
+##Pie Chart with Annotated Percentages 
+
+To add the percentage as annotation, what we should do is calculate the percentage and creat the labels for the value. The total percentage should be 100% 
+
+```{r}
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+
+pie(slices,labels = lbls, col=rainbow(length(lbls)),
+   main="Pie Chart of Countries") 
+```
+
+## 3D pie chart
+
+What if we could manage 3D pie chart which we could create on Excel? The *pie3D( )* function in the **plotrix** package provides 3D exploded pie charts.
+
+```{r}
+library(plotrix)
+
+pie3D(slices,labels=lbls,explode=0.1, main="Pie Chart of Countries ")
+```
+
