@@ -1,0 +1,224 @@
+---
+title: "Heatmap, Clustering and PCA for RNA-seq Data"
+output: html_notebook
+---
+
+# Introduction
+
+Since we already practiced how to use the session and package, and basic plotting with innate functions of R. However, we usually work for Next-Generation Sequencing (NGS) data and it requires different type of plotting. The major plots we use for RNA-seq quantification is **heatmap**, **clustering** and **PCA** plot. Here, we will try two different type of plotting with example data.
+
+In example data, there are five different samples from all different origin of cells. There is no duplicate in this case, neither the same cell type. Therefore, what we expect is different pattern of clustering and heatmap pattern.
+
+# Preparation
+
+The data is already normalized into count per 20 million, so we do not have to do any normalization or transformation. I highly recommend to use the normalized data since it is easier to deal with, rather than scaling on R session if you are not familiar with R.
+
+Let's load the data on the session.
+```{r}
+count <- read.delim("gene_exp_cp20m.csv", h=T, sep=",")
+head(count)
+```
+
+If we would like to check the number of genes in the dataset, the function *dim* will show the information.
+```{r}
+dim(count)
+```
+
+There are seven different columns and the total number of genes is 49671.
+
+Since the matrix should have the gene expression values only with the rownames, what we will do is creating proper format of gene expression matrix. Sometimes the same genes with same geneID could be included, we should check it by *unique* function. It is not mandatory, but recommended.
+```{r}
+count <- unique(count)
+
+dsample <- count[,3:ncol(count)]
+rownames(dsample) <- count[,1]
+```
+
+```{r}
+head(dsample)
+```
+
+When we create the proper format of matrix, the **rowname** is geneID, not gene symbol. Because reference genome includes the isoforms, their gene symbol is same but the gene ID is totally different. R takes the rowname with unique values only, therefore we could not use gene symbol when indicating the gene information as row name.
+
+Before we start plotting, what we should do is filtering out the genes which is not proper to be considered as expressed. Here, we will filter out if the sum of gene expression value is less than 40.
+
+```{r}
+keep <- rowSums(dsample) > 40
+dsample <- dsample[keep,]
+```
+ 
+```{r}
+dim(dsample)
+```
+
+After filtration, there is 20960 genes left. We will start to check the clustering and heatmap with this filtered one.
+
+# Clustering
+
+The first one we would like to try is **clustering**. Here, we will try two different type of clustering, unsupervised clustering and correlation-based. The result of clustering plot is **dendrogram**, composed of several trees between samples. 
+
+## Unsupervised clustering
+
+Unsupervised clustering is a type of self-organized Hebbian learning that helps find previously unknown patterns in data set without pre-existing labels. Unsupervised clustering is one of the hierarchical clustering methods, building a hierarchy of clusters. In this example, the distance is **euclidean distance**, the straight distance between two points. 
+
+The 2D format of unsupervised clustering only has branches between the samples. This is the simplest one which we could use for RNA-seq data. Also, we could draw the unsupervised clustering results with all the genes in the data or selection some most variable genes. 
+
+### Clustering all genes
+
+*hclust* function is used for hierarchical cluster analysis on a set of dissimilarities and a representative methods for analyzing it. With this function, we could generate the unsupervised clustering results to plot on the session.
+```{r}
+hs <- hclust(dist(t(dsample)))
+plot(hs)
+```
+
+The height is the euclidean distance between samples. The higher height is, the more different between each other. 
+
+### Clustering for some most variable genes
+
+Since we would like to see how the samples are variable, what we could try to do is extracting a certain number of most variable genes and then draw dendrogram. The strategy is totally same as the one with whole dataset, but the step to calculate and extract variable genes are added.
+```{r}
+varM <- apply(dsample, 1, var) #Calculating variances between samples
+varM1 <- varM[order(varM, decreasing=TRUE)] # Order the calculated variances
+```
+
+Here, we will use only the 500 most variable genes, but you could adjust number of genes by changing the range of variance data.
+```{r}
+varM1 <- varM1[1:500] 
+dM <- dsample[names(varM1),]
+
+plot(hclust(dist(t(dM))))
+```
+
+# Heatmap
+
+A **heatmap** is a graphical representation of data where the individual values contained in a matrix are represented as colors. It is useful when comparing the gene expression data from different conditions.  
+
+Not like clustering, heatmap requires several libraries and color determination. We will prepare the pre-requisite before starting plotting.
+
+## Preparation
+
+For the libraries, the three libraries are required - **RColorBrewer**, **gplots** and **ggplot2**. If they are not installed yet, you could install them with this command.
+```{r}
+install.packages("RColorBrewer")
+install.packages("gplots")
+install.packages("ggplot2")
+```
+
+```{r}
+library(RColorBrewer)
+library(gplots)
+library(ggplot2)
+```
+
+Also, color determination is based on the setting **palettes**. You could give the color keys what you want, but here, we will try Red-Yellow-Blue scheme.
+```{r}
+mypalette <- brewer.pal(11, "RdYlBu")
+mycols <- colorRampPalette(mypalette)
+```
+
+## Creating heatmap
+
+Now we are ready to plot the heatmap. For heatmap, it is not that good idea to plot all the genes in the dataset since it would make us harder to understand how much the samples are different each other. We will start with the data generated on the preparation step, but we will take only 200 most variable genes.
+
+```{r}
+varM <- apply(dsample, 1, var) 
+varM1 <- varM[order(varM, decreasing=TRUE)]
+
+varM1 <- varM1[1:200] 
+dM <- dsample[names(varM1),]
+```
+
+We will use *heatmap.2* function on R. This will help you to create heatmap easily with the matrix-format of dataset. Before starting, I would like to recommend checking the parameters to adjust. I will add some information of parameters I have used, but you could always check the parameters by *?heatmap.2*. 
+
+```{r}
+heatmap.2(as.matrix(dM), 
+          margins = c(7,10), 
+          keysize = 0.8, #Indicating the size of color key
+          scale ="row", #ALWAYS KEEP THE ROW
+          cexRow = 0.5, cexCol = 0.7, #size of axis-label
+          dendrogram = "row", 
+          Rowv = TRUE, Colv = FALSE, #TRUE = Dendrogram order,  #FALSE = Input order
+          col = rev(mycols(50)),  #Number of shades
+          trace = "none") #Data histrogram on heatmap
+```
+
+Here is the result of heatmap and clustering is based on the genes. We could see that the expression patterns are different between samples, as we expected. If you would like to see the values in detail, what we could try is changing the number of shades to higher number. 
+
+## Extracting data on heatmap
+
+Okay, so finally we got the heatmap on our hand! However, what if we would like to extract the information included in the heatmap. Still we have ways to extract the data as a matrix format, which you could play on excel!
+
+### Extract genes plotted on heatmap
+
+```{r}
+write.table(dM, "200_most_variable.csv", quote=F, sep="\t", row.names=T, col.names=T)
+```
+
+### Z-score plotted on heatmap
+
+To extract Z-score plotted on heatmap, the heatmap should be saved into the variable.
+```{r}
+hm <- heatmap.2(as.matrix(dM), 
+                margins = c(7,10), 
+                keysize = 0.8, #Indicating the size of color key
+                scale ="row", #ALWAYS KEEP THE ROW
+                cexRow = 0.5, cexCol = 0.7, #size of axis-label
+                dendrogram = "row", 
+                Rowv = TRUE, Colv = FALSE, #TRUE = Dendrogram order,  #FALSE = Input order
+                col = rev(mycols(50)),  #Number of shades
+                trace = "none") #Data histrogram on heatmap
+```
+
+Then you could extract Z-score from the heatmap saved into the variable **hm**.
+```{r}
+write.table(t(hm$carpet), "Z-score.csv", quote=F, sep="\t", row.names=T, col.names=T)
+```
+
+# PCA plot
+
+The last one what we could try with RNA-seq data is PCA plot. **Principal Component Analysis (PCA)** is a dimension-reduction tool that can be used to reduce a large set of variables to a small set that still contains most of the information in the large set. It may sound a lot difficult to understand, but it is kind of projection of variances into 2-dimentional plot. 
+
+We will work on the dataset which we already generated on preparation step. There are four different libraries required for the PCA plotting.
+```{r}
+library(ggplot2)
+library(ggfortify)
+library(cluster)
+library(RColorBrewer)
+```
+
+## Calculating principal component analysis
+
+We could calculate the variances by *prcomp* function. The data has been already normalized, so we do not have to scale the values in dataset. 
+```{r}
+pca_tdf <- prcomp(t(dsample), scale.=FALSE)
+```
+
+## PCA plot generation
+
+To generate PCA plot, what we could use is *autoplot*, since it is the simplest and easiest function we could use for. We could use the calculated PCA values to plot.
+```{r}
+autoplot(pca_tdf)
+```
+
+This is the basic format of PCA plot. However, we would like to know which samples is which point, we should add the label on the plot.
+```{r}
+autoplot(pca_tdf, label = TRUE, label.size = 3)
+```
+
+Well, it seems not so good because the point and label is overlap. What we could try is removing the point, in other words, use the label as point.
+```{r}
+autoplot(pca_tdf, label = TRUE, label.size = 3, shape=FALSE)
+```
+
+## K-means clustering based on the PCA plot
+
+What if we could calculate clusters on the PCA plot? We could do the K-means clustering on the PCA plot which we have generated. k-means clustering aims to partition n observations into k clusters in which each observation belongs to the cluster with the nearest mean, serving as a prototype of the cluster. 
+
+To get the K-means clustering, what we could use is *kmeans* function. Here, we will try several different number of clusters. By adjusting the number of clusters, the color of label is automatically changed by group. 
+```{r}
+autoplot(kmeans(pca_tdf$x, 2), data=pca_tdf,label = TRUE, label.size = 4, shape=FALSE)
+```
+
+```{r}
+autoplot(kmeans(pca_tdf$x, 3), data=pca_tdf,label = TRUE, label.size = 4, shape=FALSE)
+```
