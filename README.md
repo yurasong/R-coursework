@@ -4,6 +4,8 @@
 
 This R coursework repository is not for any course in university. Originally, this R coursework is targeted the biologists who would like to start dealing with their own data on R by themselves, especially working mainly on the wet lab. Since the main purpose is starting from the very beginning, so it would be separated into several courses with following examples.
 
+It is highly recommended to open on the laptop or desktop, rather than mobile. Readability is not so good on mobile and it is easy to practice on your R session of laptop or desktop.
+
 Please do not copy the contents or use it as the material of coursework. 
 
 ## Contents
