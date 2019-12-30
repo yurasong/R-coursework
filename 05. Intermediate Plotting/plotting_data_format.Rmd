@@ -1,0 +1,279 @@
+---
+title: "Plotting with several data format"
+output: html_notebook
+---
+
+# Introduction
+
+Since we are already getting familiar with the basic plotting functions via several practices from previous examples. A variety of different subjects ranging from plotting options to the formatting of plot is given.
+
+In this chapter, we will try to generate plots according to the various distributions. In this time, we will generate several distributions with random numbers.
+
+# Continuous Data
+
+In the examples below a data set is defined using R’s normally distributed random number generator. Here, we will define a set of normally distributed random numbers, which will be used for the practices.
+```{r}
+x <- rnorm(10,sd=5,mean=20)
+y <- 2.5*x - 1.0 + rnorm(10,sd=9,mean=0)
+cor(x,y)
+```
+
+## Multiple Data Sets on One Plot
+
+Plotting multiple datasets on the same plot is one of the common task. In many situations, we would like to add additional information to the plot which we already generate. For example, For example, to plot bivariate data the plot command is used to initialize and create the plot. The points command can then be used to add additional data sets to the plot.
+
+```{r}
+plot(x,y,xlab="Independent",ylab="Dependent",main="Random Stuff")
+x1 <- runif(8,15,25)
+y1 <- 2.5*x1 - 1.0 + runif(8,-6,6)
+points(x1,y1,col=2)
+```
+
+Note that in the previous example, the **colour for the second set** of data points is set using the col option. You can try different numbers to see what colours are available. For most installations there are at least eight options from 1 to 8. Also note that in the example above the points are plotted as circles. The symbol that is used can be changed using the *pch* option.
+
+Again, try different numbers to see the various options. We will add the legend, providing the information of each data label. This can be done with the *legend* command. 
+```{r}
+x2 <- runif(8,15,25)
+y2 <- 2.5*x2 - 1.0 + runif(8,-6,6)
+
+plot(x,y,xlab="Independent",ylab="Dependent",main="Random Stuff")
+points(x1,y1,col=2,pch=3)
+points(x2,y2,col=4,pch=5)
+legend(14,70,c("Original","one","two"),col=c(1,2,4),pch=c(1,3,5))
+```
+
+Another common task is to **change the range of the axes** to change the size of the plotting area. This is achieved using the *xlim and ylim* options in the plot command. Both options take a vector of length two that have the minimum and maximum values.
+
+## Error bars
+
+Sometimes, if we are working with replicates, it would generate a set of data points. In this case, we could add **error bars** Tby using the *arrows* command. 
+```{r}
+plot(x,y,xlab="Independent",ylab="Dependent",main="Random Stuff")
+xHigh <- x
+yHigh <- y + abs(rnorm(10,sd=3.5))
+xLow <- x
+yLow <- y - abs(rnorm(10,sd=3.1))
+arrows(xHigh,yHigh,xLow,yLow,col=2,angle=90,length=0.1,code=3)
+```
+
+Note that the option *code* is used to specify where the bars are drawn. Its value can be 1, 2, or 3. If code is 1 the bars are drawn at pairs given in the first argument. If code is 2 the bars are drawn at the pairs given in the second argument. If code is 3 the bars are drawn at both.
+
+## Multiple graphs on one session
+
+Here, to put several plots on one session, we need to use *par* function. Tghis command can be used to set different parameters. In the example above the *mfrow* was also set. The *mfrow* is composed of a vector with two entries, the first is the number of rows and second is number of columns. By setting *mfrow*, the plots would be arranged as we want.
+
+Here, before starting the plotting, we will set a new set of random numbers.
+```{r}
+numberWhite <- rhyper(400,4,5,3)
+numberChipped <- rhyper(400,2,7,3)
+```
+
+```{r}
+par(mfrow=c(2,3))
+boxplot(numberWhite,main="first plot")
+boxplot(numberChipped,main="second plot")
+plot(jitter(numberWhite),jitter(numberChipped),xlab="Number White Marbles Drawn",
+       ylab="Number Chipped Marbles Drawn",main="Pulling Marbles With Jitter")
+hist(numberWhite,main="fourth plot")
+hist(numberChipped,main="fifth plot")
+mosaicplot(table(numberWhite,numberChipped),main="sixth plot")
+```
+
+## Density plots
+
+The density plot is not commonly used, but could be a nice plot if we would like to show the density of signals or frequencies. This can be done using the *smoothScatter* command.
+```{r}
+numberWhite <- rhyper(30,4,5,3)
+numberChipped <- rhyper(30,2,7,3)
+smoothScatter(numberWhite,numberChipped,
+             xlab="White Marbles",ylab="Chipped Marbles",main="Drawing Marbles")
+```
+
+Note that the density plot may benefit by superimposing a grid to help delimit the points of interest. This can be done using the *grid* command.
+```{r}
+numberWhite <- rhyper(30,4,5,3)
+numberChipped <- rhyper(30,2,7,3)
+smoothScatter(numberWhite,numberChipped,
+             xlab="White Marbles",ylab="Chipped Marbles",main="Drawing Marbles")
+grid(4,3)
+```
+
+## Pairwise relations
+
+A large number of relationships can be plotted at one time using the *pairs* command. This is helpful when you would like to give the relations as a matrix or a data frame.
+```{r}
+uData <- rnorm(20)
+vData <- rnorm(20,mean=5)
+wData <- uData + 2*vData + rnorm(20,sd=0.5)
+xData <- -2*uData+rnorm(20,sd=0.1)
+yData <- 3*vData+rnorm(20,sd=2.5)
+
+d <- data.frame(u=uData,v=vData,w=wData,x=xData,y=yData)
+pairs(d)
+```
+
+## Shade on the certain region of plot
+
+To giving the highlight, or shade on the plot, the *polygon* command could be used. The polygon command takes a pair of vectors, x and y, and shades the region enclosed by the coordinate pairs. Here is the simple example, first of all.
+```{r}
+x = c(-1,1,1,-1,-1)
+y = c(-1,-1,1,1,-1)
+plot(x,y)
+polygon(x,y,col='blue')
+```
+
+What if we would like to give the shade only on a part of plot? This would be more complicated, but not impossible one. We will plot the rejection region for a right sided hypothesis test is plotted, and it is shaded in red. A set of custom axes is constructed, and symbols are plotted using the *expression* command.
+
+```{r}
+# Set the data
+stdDev <- 0.75;
+x <- seq(-5,5,by=0.01)
+y <- dnorm(x,sd=stdDev)
+right <- qnorm(0.95,sd=stdDev)
+
+# Plotting possibility distribution
+plot(x,y,type="l",xaxt="n",ylab="p",
+       xlab=expression(paste('Assumed Distribution of ',bar(x))),
+       axes=FALSE,ylim=c(0,max(y)*1.05),xlim=c(min(x),max(x)),
+       frame.plot=FALSE)
+
+# Draw axis separately
+axis(1,at=c(-5,right,0,5),
+       pos = c(0,0),
+       labels=c(expression(' '),expression(bar(x)[cr]),expression(mu[0]),expression(' ')))
+axis(2)
+
+# Add reject region to shade
+xReject <- seq(right,5,by=0.01)
+yReject <- dnorm(xReject,sd=stdDev)
+polygon(c(xReject,xReject[length(xReject)],xReject[1]),
+          c(yReject,0, 0), col='red')
+```
+
+The axes are drawn separately. This is done by first suppressing the plotting of the axes in the *plot* command, and the horizontal axis is drawn separately. Also note that the expression command is used to plot a Greek character and also produce subscripts.
+
+## Surface
+
+This is the last example for the continuous data. Here, we will try a brief example of how to plot a surface is given. The *persp* command will plot a surface with a specified perspective. In the example, a grid is defined by multiplying a row and column vector to give the x and then the y values for a grid. Once that is done a sine function is specified on the grid, and the persp command is used to plot it. Note that the %*% notation is used to perform matrix multiplication.
+```{r}
+x <- seq(0,2*pi,by=pi/100)
+y <- x
+xg <- (x*0+1) %*% t(y)
+yg <- (x) %*% t(y*0+1)
+
+f <- sin(xg+yg)
+persp(x,y,f,theta=-10,phi=40) #Theta and phi is setting the degree for the surface.
+```
+
+# Discrete Data
+
+## Mosaic plot
+
+Mosaic plots are used to display proportions for tables that are divided into two or more conditional distributions. In this example, we will focus on the [two way tables](https://educationalresearchtechniques.com/2015/10/26/two-way-tables-in-r/) to keep the data as simple as possible. 
+
+Here we will use a made up data set primarily to make it easier to figure out what R is doing. The **fictitious data set** is defined below. The idea is that sixteen children of age eight are interviewed. They are asked two questions. The first question is, “do you believe in Santa Claus.” If they say that they do then the term “belief” is recorded, otherwise the term “no belief” is recorded. The second question is whether or not they have an older brother, older sister, or no older sibling. (We are keeping it simple here!) The answers that are recorded are “older brother,” “older sister,” or “no older sibling.”
+```{r}
+santa <- data.frame(belief=c('no belief','no belief','no belief','no belief',
+                               'belief','belief','belief','belief',
+                               'belief','belief','no belief','no belief',
+                               'belief','belief','no belief','no belief'),
+                      sibling=c('older brother','older brother','older brother','older sister',
+                                'no older sibling','no older sibling','no older sibling','older sister',
+                                'older brother','older sister','older brother','older sister',
+                                'no older sibling','older sister','older brother','no older sibling')
+                      )
+
+santa
+```
+
+You could check the data status by using *summary* function.
+```{r}
+summary(santa)
+```
+
+The data is given as strings, so R will automatically treat them as categorical data, as a type of *factor*. If you plot the individual data sets, the plot command will default for barplots.
+```{r}
+plot(santa$belief)
+```
+
+If you provide both data sets into *plot* function, it will generate a **mosaic plot** which visualizes the frequencies in terms of results.
+```{r}
+plot(santa$sibling,santa$belief)
+```
+
+Also, *mosaicplot* is the another way to generate mosaic plot directly. However, before generating the plot with *mosaicplot*, you should define the variable to put the two datasets together. In addition, the colors of the plot can be specified by setting the *col* argument. The argument is a vector of colours used for the rows. 
+```{r}
+totals = table(santa$belief,santa$sibling)
+mosaicplot(totals,main="Older Brothers are Jerks",
+           xlab="Belief in Santa Claus",ylab="Older Sibling",
+           col=c(2,3,4))
+```
+
+# Other useful options
+
+The options in the examples would be counted as miscellaneous options, but it is still fancy options to visualize the data more informative. Here, we will try some examples to combine several options.
+
+## Multiple representations
+
+### Multiple formats in one plot
+
+Here, we will plot a histogram with an approximation of the density function first. In addition, horizontal box plot and rugs will be added to support the histogram. 
+
+```{r}
+x = rexp(20,rate=4)
+hist(x,ylim=c(0,18),main="This Are An Histogram",xlab="X")
+boxplot(x,at=16,horizontal=TRUE,add=TRUE)
+
+rug(x,side=1)
+d = density(x)
+points(d,type='l',col=3)
+```
+
+### Multiple windows
+
+The *dev* commands allow you to create and manipulate multiple graphics windows. You can create new windows using the *dev.new()* command, and you can choose which one to make active using the *dev.set()* command. The *dev.list()*, *dev.next()*, and *dev.prev()* command can be used to list the graphical devices that are available.
+```{r}
+dev.new()
+dev.list()
+
+dev.set(3)
+
+x = rnorm(20)
+hist(x)
+dev.set(2)
+```
+
+```{r}
+dev.new()
+boxplot(x)
+```
+
+```{r}
+dev.new()
+dev.set(4)
+qqnorm(x)
+qqline(x)
+dev.next()
+```
+
+```{r}
+dev.set(dev.next())
+plot(density(x))
+```
+
+## Print as a file
+
+There are two ways to export a plot as a file. The first way explored is to use the *dev.print* command. This command will print a copy of the currently active device, and the format is defined by the device argument.
+```{r}
+x = rnorm(100)
+hist(x)
+dev.print(device=png,width=200,"hist.png")
+```
+
+The other way to print to a file is to create a device in the same way as the graphical devices were created in the previous section. Once the device is created, the various plot commands are given, and then the device is turned off to write the results to a file.
+```{r}
+png(file="hist1.png")
+hist(x)
+rug(x,side=1)
+dev.off()
+```
