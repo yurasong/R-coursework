@@ -1,0 +1,137 @@
+---
+title: "Calculating p-values"
+output: html_notebook
+---
+
+# Introduction
+
+Especially in the lab, we would work with several types of data, including sequencing data and counting data. Sometimes we need to calculate *p-value* to show whether the data has significancy or not. Here, we will practice how to calculate the p-value from several dataset having different-Distribution.
+
+Here, we will start with the standard way of calculating *p-value* first, but the easy way would be added on the last of this practice. It is highly recommended to start with the standard way to understand how it works.
+
+In this example, We look at the necessary steps to get the *p-value* for a two sided test, since it is commonly used. 
+
+# Calculating a Single p-Value From a Normal Distribution
+
+Here we want to show that the mean is not close to a fixed value. In this case, the *p-value* will be calculated for a particular sample mean. Here we assume that we obtained a sample mean, *μ* and want to find corresponding *p-value*.  It is the **probability** that we would obtain a given sample mean that is greater than the absolute value of its **Z-score** or less than the negative of the absolute value of its **Z-score**.
+
+We will first look at how to calculate the *p-value* using the **Z-score**. The **Z-score** is found by assuming that the null hypothesis is true, subtracting the assumed mean, and dividing by the theoretical standard deviation. Once the Z-score is found the probability that the value could be less the **Z-score** is found using the *pnorm* command.
+
+For the special case of a normal distribution we also need the **standard deviation**. We will assume that we are given the standard deviation and call it *s*. The calculation for the *p-value* can be done in several of ways. 
+
+We will look at two ways here. The first way is to convert the sample means to their associated Z-score. The other way is to simply specify the standard deviation and let the computer do the conversion. At first glance it may seem like a no brainer, and we should just use the second method. Unfortunately, when using the t-distribution we need to convert to the t-score, so it is a good idea to know both ways.
+
+In the example below, we will use a value of a of 5, a standard deviation of 2, and a sample size of 20. We then find the p value for a sample mean of 7.
+
+```{r}
+a <- 5
+s <- 2
+n <- 20
+xbar <- 7
+```
+
+```{r}
+z <- (xbar-a)/(s/sqrt(n))
+z
+```
+
+However, this may not be enough to get the *p-value*. If the Z-score that is found is positive then we need to take one minus the associated probability. Also, **for a two-sided test we need to multiply the result by two**. Here we avoid these issues and insure that the Z-score is negative by taking the negative of the absolute value.
+```{r}
+2*pnorm(-abs(z))
+```
+
+We now look at the same problem only specifying the mean and standard deviation within the *pnorm* command. Note that for this case we cannot so easily force the use of the left tail. Since the sample mean is more than the assumed mean we have to take two times one minus the probability:
+```{r}
+a <- 5
+s <- 2
+n <- 20
+xbar <- 7
+2*(1-pnorm(xbar,mean=a,sd=s/sqrt(20)))
+```
+
+# Calculating p-value from t-distribution
+
+## Calculating a Single p Value From a t-Distribution
+
+It would be the one which we may use the most. Finding the *p-value* using a **t-distribution** is very similar to using the Z-score as demonstrated above. The only difference is that you have to specify the number of **degrees of freedom**. 
+
+```{r}
+a <- 5
+s <- 2
+n <- 20
+xbar <- 7
+t <- (xbar-a)/(s/sqrt(n))
+t
+
+```
+
+```{r}
+2*pt(-abs(t),df=n-1)
+```
+
+## Calculating Many p-values From a t-Distribution
+
+Suppose that you want to find the *p-values* for many tests. This is a task frequetly done and most of software will perform the calculation of multiple *p-values*. Here we see how it can be done in R.
+
+Here we assume that we want to do a **one-sided** hypothesis test for a number of comparisons. In particular we will dotthree hypothesis tests.
+
+For each of these comparisons we want to calculate a *p-value*. For each comparison there are two groups. 
+
+We assume that the means for the first group are defined in a variable called m1. The means for the second group are defined in a variable called m2. The standard deviations for the first group are in a variable called sd1. The standard deviations for the second group are in a variable called sd2. The number of samples for the first group are in a variable called num1. Finally, the number of samples for the second group are in a variable called num2.
+```{r}
+m1 <- c(10,12,30)
+m2 <- c(10.5,13,28.5)
+sd1 <- c(3,4,4.5)
+sd2 <- c(2.5,5.3,3)
+num1 <- c(300,210,420)
+num2 <- c(230,340,400)
+```
+
+To see the values, just type in the variable name on a line and the R session will print out the variables.
+
+Before we can do that we must first compute a *standard error* and a *t-score*. We will find general formulae which is necessary in order to do all three calculations at once.
+```{r}
+se <- sqrt(sd1*sd1/num1+sd2*sd2/num2)
+t <- (m1-m2)/se
+```
+
+To use the *pt* function, the number of **degrees of freedom** is required. This can be done using the *pmin* command. Note that there is also a command called *min*, but it does not work the same way. You need to use pmin to get the correct results. The numbers of degrees of freedom are pmin(num1,num2)-1. So the p values can be found using the following R command.
+```{r}
+pt(t,df=pmin(num1,num2)-1)
+```
+
+If you enter all of these commands into R, you should have noticed that **the last p value is not correct**. The *pt* command gives the probability that a score is less that the specified t. The t-score for the last entry is positive, and we want the probability that a t-score is bigger. One way around this is to make sure that all of the t-scores are negative. You can do this by taking the negative of the absolute value of the t-scores:
+```{r}
+pt(-abs(t),df=pmin(num1,num2)-1)
+```
+
+The results from the command above should give you the *p-values* for a one-sided test. It is left as an exercise how to find the *p-values* for a two-sided test.
+
+# Shortcut for calculating P-value
+
+From the previoues examples, we tried some standard method of calculating *p-values* from several tests. Her, we will try some easier way to calculating *p-value*. 
+
+The methods above demonstrate how to calculate the *p-values* directly making use of the standard formulae. There is another, more direct way to do this using the *t.test* command. The *t.test* command takes a data set for an argument, and the default operation is to perform a **two-sided hypothesis test**.
+```{r}
+x = c(9.0,9.5,9.6,10.2,11.6)
+t.test(x)
+```
+
+If you want to test against a **different assumed mean** then you can use the mu argument:
+```{r}
+x = c(9.0,9.5,9.6,10.2,11.6)
+t.test(x,mu=10)
+```
+
+If you are interested in a **one-sided test** then you can specify which test to employ using the *alternative* option:
+```{r}
+x = c(9.0,9.5,9.6,10.2,11.6)
+t.test(x,mu=10,alternative="less")
+```
+
+The *t.test* command also accepts a second data set to compare two sets of samples. The default is to treat them as independent sets, but there is an option to treat them as dependent data sets.
+```{r}
+x = c(9.0,9.5,9.6,10.2,11.6)
+y=c(9.9,8.7,9.8,10.5,8.9,8.3,9.8,9.0)
+t.test(x,y)
+```

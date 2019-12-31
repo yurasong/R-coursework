@@ -1,0 +1,20 @@
+---
+title: "Calculating power of a test"
+output: html_notebook
+---
+
+# Introduction
+
+With previous example, we practiced how to calculate *p-values* from the dataset with different distributions. Here, we will try some practices to calculate the power of a test. Same as previous example, the **normal distribution** and **t-distribution** will be used for practice.
+
+All of the examples here are for a **two-sided test**, and you can adjust them accordingly for a one-sided test.
+
+## Power of A Test
+
+**The power of a test** is the probability that we can the reject null hypothesis at a given mean that is away from the one specified in the null hypothesis. We calculate this probability by first calculating the probability that we accept the null hypothesis when we should not. This is the probability to make a type II error. Hence, the power is the **probability that we do not make a type II error** so we then take one minus the result to get the power.
+
+We can fail to reject the null hypothesis if the sample happens to be within the confidence interval we find when we assume that the null hypothesis is true. To get the *confidence interval*, we find the margin of error and then add and subtract it to the proposed mean, a, to get the confidence interval. We then turn around and assume instead that the true mean is at a different, explicitly specified level, and then find the probability a sample could be found within the original confidence interval.
+
+# Calculating The Power Using a Normal Distribution
+
+Here we calculate the power of a test for a normal distribution. 
