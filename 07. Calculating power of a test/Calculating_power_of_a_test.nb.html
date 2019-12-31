@@ -238,11 +238,228 @@ summary {
 </div>
 <div id="calculating-the-power-using-a-normal-distribution" class="section level1">
 <h1>Calculating The Power Using a Normal Distribution</h1>
-<p>Here we calculate the power of a test for a normal distribution.</p>
+<p>Here we calculate the power of a test for a normal distribution. In the example below the hypothesis test is, H0:μx=5.</p>
+<p>We will assume that the <em>standard deviation</em> is 2, and the <em>sample size</em> is 20. In the example below we will use a 95% confidence level and wish to find the power to detect a true mean that differs from 5 by an amount of 1.5. (All of these numbers are made up solely for this example.) The commands to find the confidence interval in R are the following:</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYSA8LSA1XG5zIDwtIDJcbm4gPC0gMjBcbmVycm9yIDwtIHFub3JtKDAuOTc1KSpzL3NxcnQobilcbmxlZnQgPC0gYS1lcnJvclxucmlnaHQgPC0gYStlcnJvclxuYGBgIn0= -->
+<pre class="r"><code>a &lt;- 5
+s &lt;- 2
+n &lt;- 20
+error &lt;- qnorm(0.975)*s/sqrt(n)
+left &lt;- a-error
+right &lt;- a+error</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGVmdFxuYGBgIn0= -->
+<pre class="r"><code>left</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDQuMTIzNDc3XG4ifQ== -->
+<pre><code>[1] 4.123477</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucmlnaHRcbmBgYCJ9 -->
+<pre class="r"><code>right</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDUuODc2NTIzXG4ifQ== -->
+<pre><code>[1] 5.876523</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>Next we find the <em>Z-scores</em> for the left and right values assuming that the true mean is 5+1.5=6.5:</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYXNzdW1lZCA8LSBhICsgMS41XG5abGVmdCA8LSAobGVmdC1hc3N1bWVkKS8ocy9zcXJ0KG4pKVxuWnJpZ2h0IDwtKHJpZ2h0LWFzc3VtZWQpLyhzL3NxcnQobikpXG5wIDwtIHBub3JtKFpyaWdodCktcG5vcm0oWmxlZnQpXG5wXG5gYGAifQ== -->
+<pre class="r"><code>assumed &lt;- a + 1.5
+Zleft &lt;- (left-assumed)/(s/sqrt(n))
+Zright &lt;-(right-assumed)/(s/sqrt(n))
+p &lt;- pnorm(Zright)-pnorm(Zleft)
+p</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDAuMDgxNjM3OTJcbiJ9 -->
+<pre><code>[1] 0.08163792</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>The probability that we make a type II error if the true mean is 6.5 is approximately 8.1%. So the <em>power of the test</em> is 1-p:</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuMS1wXG5gYGAifQ== -->
+<pre class="r"><code>1-p</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDAuOTE4MzYyMVxuIn0= -->
+<pre><code>[1] 0.9183621</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+</div>
+<div id="calculating-the-power-using-a-t-distributions" class="section level1">
+<h1>Calculating the Power Using a t-Distributions</h1>
+<p>Calculating the power when using a <strong>t-test</strong> is similar to using a normal distribution. One difference is that we use the command associated with the <strong>t-distribution</strong> rather than the normal distribution. Here we repeat the test above, but we will assume that we are working with a sample standard deviation rather than an <em>exact standard deviation</em>.</p>
+<div id="calculating-single-power-using-a-t-distributions" class="section level2">
+<h2>Calculating Single Power Using a t-Distributions</h2>
+<p>We will explore three different ways to calculate the power of a test. The first method makes use of the scheme many books recommend if you <strong>do not have the non-central distribution</strong> available.</p>
+<p>Again we assume that the sample <em>standard deviation</em> is 2, and the <em>sample size</em> is 20. We use a <em>95% confidence level</em> and wish to find the power to detect a true mean that differs from 5 by an amount of 1.5. The commands to find the confidence interval in R are the following:</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYSA8LSA1XG5zIDwtIDJcbm4gPC0gMjBcbmVycm9yIDwtIHF0KDAuOTc1LGRmPW4tMSkqcy9zcXJ0KG4pXG5sZWZ0IDwtIGEtZXJyb3JcbnJpZ2h0IDwtIGErZXJyb3JcbmBgYCJ9 -->
+<pre class="r"><code>a &lt;- 5
+s &lt;- 2
+n &lt;- 20
+error &lt;- qt(0.975,df=n-1)*s/sqrt(n)
+left &lt;- a-error
+right &lt;- a+error</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>The number of observations is large enough that the results are quite close to those in the example using the normal distribution. Next we find the <em>t-scores</em> for the left and right values assuming that the true mean is 5+1.5=6.5:</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYXNzdW1lZCA8LSBhICsgMS41XG50bGVmdCA8LSAobGVmdC1hc3N1bWVkKS8ocy9zcXJ0KG4pKVxudHJpZ2h0IDwtIChyaWdodC1hc3N1bWVkKS8ocy9zcXJ0KG4pKVxucCA8LSBwdCh0cmlnaHQsZGY9bi0xKS1wdCh0bGVmdCxkZj1uLTEpXG5wXG5gYGAifQ== -->
+<pre class="r"><code>assumed &lt;- a + 1.5
+tleft &lt;- (left-assumed)/(s/sqrt(n))
+tright &lt;- (right-assumed)/(s/sqrt(n))
+p &lt;- pt(tright,df=n-1)-pt(tleft,df=n-1)
+p</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDAuMTExMjU4M1xuIn0= -->
+<pre><code>[1] 0.1112583</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>The <strong>probability that we make a type II error</strong> if the true mean is 6.5 is approximately 11.1%. So the <strong>power of the test</strong> is 1-p:</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuMS1wXG5gYGAifQ== -->
+<pre class="r"><code>1-p</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDAuODg4NzQxN1xuIn0= -->
+<pre><code>[1] 0.8887417</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>In this example, the <strong>power of the test</strong> is approximately 88.9%. If the true mean differs from 5 by 1.5 then the probability that we will reject the null hypothesis is approximately 88.9%. Note that the power calculated for a normal distribution is slightly higher than for this one calculated with the <strong>t-distribution</strong>.</p>
+<p>The second does make <strong>use of the non-central distribution</strong>, and the third makes use of a single command that will do a lot of the work for us. In other words, this was is using approximate the power is to make use of the non-centrality parameter. The idea is that you give it the critical <em>t-scores</em> and the amount that the mean would be shifted if the alternate mean were the true mean.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubmNwIDwtIDEuNS8ocy9zcXJ0KG4pKVxudCA8LSBxdCgwLjk3NSxkZj1uLTEpXG5wdCh0LGRmPW4tMSxuY3A9bmNwKS1wdCgtdCxkZj1uLTEsbmNwPW5jcClcbmBgYCJ9 -->
+<pre class="r"><code>ncp &lt;- 1.5/(s/sqrt(n))
+t &lt;- qt(0.975,df=n-1)
+pt(t,df=n-1,ncp=ncp)-pt(-t,df=n-1,ncp=ncp)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDAuMTExMTUyMlxuIn0= -->
+<pre><code>[1] 0.1111522</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuMS0ocHQodCxkZj1uLTEsbmNwPW5jcCktcHQoLXQsZGY9bi0xLG5jcD1uY3ApKVxuYGBgIn0= -->
+<pre class="r"><code>1-(pt(t,df=n-1,ncp=ncp)-pt(-t,df=n-1,ncp=ncp))</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDAuODg4ODQ3OFxuIn0= -->
+<pre><code>[1] 0.8888478</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>Again, we see that the <strong>probability of making a type II error</strong> is approximately 11.1%, and the power is approximately 88.9%. Note that this is slightly different than the previous calculation but is still close.</p>
+<p>Finally, there is one more command that we explore. This command allows us to do the same power calculation as above but with a single command.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucG93ZXIudC50ZXN0KG49bixkZWx0YT0xLjUsc2Q9cyxzaWcubGV2ZWw9MC4wNSwgXG4gICAgICAgICAgICAgdHlwZT1cIm9uZS5zYW1wbGVcIixhbHRlcm5hdGl2ZT1cInR3by5zaWRlZFwiLHN0cmljdCA9IFRSVUUpXG5gYGAifQ== -->
+<pre class="r"><code>power.t.test(n=n,delta=1.5,sd=s,sig.level=0.05, 
+             type=&quot;one.sample&quot;,alternative=&quot;two.sided&quot;,strict = TRUE)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiXG4gICAgIE9uZS1zYW1wbGUgdCB0ZXN0IHBvd2VyIGNhbGN1bGF0aW9uIFxuXG4gICAgICAgICAgICAgIG4gPSAyMFxuICAgICAgICAgIGRlbHRhID0gMS41XG4gICAgICAgICAgICAgc2QgPSAyXG4gICAgICBzaWcubGV2ZWwgPSAwLjA1XG4gICAgICAgICAgcG93ZXIgPSAwLjg4ODg0NzhcbiAgICBhbHRlcm5hdGl2ZSA9IHR3by5zaWRlZFxuIn0= -->
+<pre><code>
+     One-sample t test power calculation 
+
+              n = 20
+          delta = 1.5
+             sd = 2
+      sig.level = 0.05
+          power = 0.8888478
+    alternative = two.sided</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>This is a powerful command that can do much more than just calculate the <strong>power of a test</strong>. For example it can also be used to calculate the number of observations necessary to achieve a given power.</p>
+</div>
+<div id="calculating-multiple-powers-using-a-t-distributions" class="section level2">
+<h2>Calculating Multiple Powers Using a t-Distributions</h2>
+<p>Suppose that you want to find the powers for many tests. Calculating multiple powers is available on several tools and packages. Here we see how it can be done in R. We use the exact same cases as in the previous chapter.</p>
+<p>Here we assume that we want to do a two-sided hypothesis test for a number of comparisons and want to find the power of the tests to detect a 1 point difference in the means. In particular we will look at three hypothesis tests. All are following Ho:μ1−μ2≠0,</p>
+<p>For each of these comparisons we want to calculate the power of the test. For each comparison there are two groups. We will refer to group one as the group whose results are in the first row of each comparison above. We will refer to group two as the group whose results are in the second row of each comparison above. Before we can do that we must first compute a standard error and a t-score. We will find general formulae which is necessary in order to do all three calculations at once.</p>
+<p>We assume that the <em>means</em> for the first group are defined in a variable called m1. The means for the second group are defined in a variable called m2. The <em>standard deviations</em> for the first group are in a variable called sd1. The standard deviations for the second group are in a variable called sd2. The <em>number of samples</em> for the first group are in a variable called num1. Finally, the number of samples for the second group are in a variable called num2.</p>
+<p>With these definitions the standard error is the square root of (sd1<sup>2)/num1+(sd2</sup>2)/num2. The R commands to do this can be found below:</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubTEgPC0gYygxMCwxMiwzMClcbm0yIDwtIGMoMTAuNSwxMywyOC41KVxuc2QxIDwtIGMoMyw0LDQuNSlcbnNkMiA8LSBjKDIuNSw1LjMsMylcbm51bTEgPC0gYygzMDAsMjEwLDQyMClcbm51bTIgPC0gYygyMzAsMzQwLDQwMClcbnNlIDwtIHNxcnQoc2QxKnNkMS9udW0xK3NkMipzZDIvbnVtMilcbmBgYCJ9 -->
+<pre class="r"><code>m1 &lt;- c(10,12,30)
+m2 &lt;- c(10.5,13,28.5)
+sd1 &lt;- c(3,4,4.5)
+sd2 &lt;- c(2.5,5.3,3)
+num1 &lt;- c(300,210,420)
+num2 &lt;- c(230,340,400)
+se &lt;- sqrt(sd1*sd1/num1+sd2*sd2/num2)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>Now we need to define the confidence interval around the assumed differences. Just as in the case of finding the <em>p-values</em> in previous chapter we have to use the <em>pmin</em> command to get the number of <em>degrees of freedom</em>. In this case the null hypotheses are for a difference of zero, and we use a *95% confidence interval**:</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGVmdCA8LSBxdCgwLjAyNSxkZj1wbWluKG51bTEsbnVtMiktMSkqc2VcbnJpZ2h0IDwtIC1sZWZ0XG5gYGAifQ== -->
+<pre class="r"><code>left &lt;- qt(0.025,df=pmin(num1,num2)-1)*se
+right &lt;- -left</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>We can now calculate the <strong>power of the one-sided test</strong>. Assuming a true mean of 1 we can calculate the t-scores associated with both the left and right variables:</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudGwgPC0gKGxlZnQtMSkvc2VcbnRyIDwtIChyaWdodC0xKS9zZVxucHJvYklJIDwtIHB0KHRyLGRmPXBtaW4obnVtMSxudW0yKS0xKSAtIHB0KHRsLGRmPXBtaW4obnVtMSxudW0yKS0xKVxucG93ZXIgPC0gMS1wcm9iSUlcbnBvd2VyXG5gYGAifQ== -->
+<pre class="r"><code>tl &lt;- (left-1)/se
+tr &lt;- (right-1)/se
+probII &lt;- pt(tr,df=pmin(num1,num2)-1) - pt(tl,df=pmin(num1,num2)-1)
+power &lt;- 1-probII
+power</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDAuOTg2MDE1MiAwLjcwNDQyNjAgMC45NjMyNjEzXG4ifQ== -->
+<pre><code>[1] 0.9860152 0.7044260 0.9632613</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>The results from the command above should give you the p-values for a two-sided test. It is left as an exercise how to find the <em>p-values</em> for a <strong>one-sided test</strong>.</p>
+<p>Just as was found above there is more than one way to <strong>calculate the power</strong>. We also include the method using the <em>non-central parameter</em> which is recommended over the previous method:</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudCA8LSBxdCgwLjk3NSxkZj1wbWluKG51bTEsbnVtMiktMSlcbm5jcCA8LSAoMSkvc2VcbnB0KHQsZGY9cG1pbihudW0xLG51bTIpLTEsbmNwPW5jcCktcHQoLXQsZGY9cG1pbihudW0xLG51bTIpLTEsbmNwPW5jcClcbmBgYCJ9 -->
+<pre class="r"><code>t &lt;- qt(0.975,df=pmin(num1,num2)-1)
+ncp &lt;- (1)/se
+pt(t,df=pmin(num1,num2)-1,ncp=ncp)-pt(-t,df=pmin(num1,num2)-1,ncp=ncp)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDAuMDEzNzQxMTIgMC4yOTUzMzQ1NSAwLjAzNjYwODQyXG4ifQ== -->
+<pre><code>[1] 0.01374112 0.29533455 0.03660842</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuMS0ocHQodCxkZj1wbWluKG51bTEsbnVtMiktMSxuY3A9bmNwKS1wdCgtdCxkZj1wbWluKG51bTEsbnVtMiktMSxuY3A9bmNwKSlcbmBgYCJ9 -->
+<pre class="r"><code>1-(pt(t,df=pmin(num1,num2)-1,ncp=ncp)-pt(-t,df=pmin(num1,num2)-1,ncp=ncp))</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDAuOTg2MjU4OSAwLjcwNDY2NTUgMC45NjMzOTE2XG4ifQ== -->
+<pre><code>[1] 0.9862589 0.7046655 0.9633916</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
 <!-- rnb-text-end -->
 </div>
+</div>
 
-<div id="rmd-source-code">LS0tDQp0aXRsZTogIkNhbGN1bGF0aW5nIHBvd2VyIG9mIGEgdGVzdCINCm91dHB1dDogaHRtbF9ub3RlYm9vaw0KLS0tDQoNCiMgSW50cm9kdWN0aW9uDQoNCldpdGggcHJldmlvdXMgZXhhbXBsZSwgd2UgcHJhY3RpY2VkIGhvdyB0byBjYWxjdWxhdGUgKnAtdmFsdWVzKiBmcm9tIHRoZSBkYXRhc2V0IHdpdGggZGlmZmVyZW50IGRpc3RyaWJ1dGlvbnMuIEhlcmUsIHdlIHdpbGwgdHJ5IHNvbWUgcHJhY3RpY2VzIHRvIGNhbGN1bGF0ZSB0aGUgcG93ZXIgb2YgYSB0ZXN0LiBTYW1lIGFzIHByZXZpb3VzIGV4YW1wbGUsIHRoZSAqKm5vcm1hbCBkaXN0cmlidXRpb24qKiBhbmQgKip0LWRpc3RyaWJ1dGlvbioqIHdpbGwgYmUgdXNlZCBmb3IgcHJhY3RpY2UuDQoNCkFsbCBvZiB0aGUgZXhhbXBsZXMgaGVyZSBhcmUgZm9yIGEgKip0d28tc2lkZWQgdGVzdCoqLCBhbmQgeW91IGNhbiBhZGp1c3QgdGhlbSBhY2NvcmRpbmdseSBmb3IgYSBvbmUtc2lkZWQgdGVzdC4NCg0KIyMgUG93ZXIgb2YgQSBUZXN0DQoNCioqVGhlIHBvd2VyIG9mIGEgdGVzdCoqIGlzIHRoZSBwcm9iYWJpbGl0eSB0aGF0IHdlIGNhbiB0aGUgcmVqZWN0IG51bGwgaHlwb3RoZXNpcyBhdCBhIGdpdmVuIG1lYW4gdGhhdCBpcyBhd2F5IGZyb20gdGhlIG9uZSBzcGVjaWZpZWQgaW4gdGhlIG51bGwgaHlwb3RoZXNpcy4gV2UgY2FsY3VsYXRlIHRoaXMgcHJvYmFiaWxpdHkgYnkgZmlyc3QgY2FsY3VsYXRpbmcgdGhlIHByb2JhYmlsaXR5IHRoYXQgd2UgYWNjZXB0IHRoZSBudWxsIGh5cG90aGVzaXMgd2hlbiB3ZSBzaG91bGQgbm90LiBUaGlzIGlzIHRoZSBwcm9iYWJpbGl0eSB0byBtYWtlIGEgdHlwZSBJSSBlcnJvci4gSGVuY2UsIHRoZSBwb3dlciBpcyB0aGUgKipwcm9iYWJpbGl0eSB0aGF0IHdlIGRvIG5vdCBtYWtlIGEgdHlwZSBJSSBlcnJvcioqIHNvIHdlIHRoZW4gdGFrZSBvbmUgbWludXMgdGhlIHJlc3VsdCB0byBnZXQgdGhlIHBvd2VyLg0KDQpXZSBjYW4gZmFpbCB0byByZWplY3QgdGhlIG51bGwgaHlwb3RoZXNpcyBpZiB0aGUgc2FtcGxlIGhhcHBlbnMgdG8gYmUgd2l0aGluIHRoZSBjb25maWRlbmNlIGludGVydmFsIHdlIGZpbmQgd2hlbiB3ZSBhc3N1bWUgdGhhdCB0aGUgbnVsbCBoeXBvdGhlc2lzIGlzIHRydWUuIFRvIGdldCB0aGUgKmNvbmZpZGVuY2UgaW50ZXJ2YWwqLCB3ZSBmaW5kIHRoZSBtYXJnaW4gb2YgZXJyb3IgYW5kIHRoZW4gYWRkIGFuZCBzdWJ0cmFjdCBpdCB0byB0aGUgcHJvcG9zZWQgbWVhbiwgYSwgdG8gZ2V0IHRoZSBjb25maWRlbmNlIGludGVydmFsLiBXZSB0aGVuIHR1cm4gYXJvdW5kIGFuZCBhc3N1bWUgaW5zdGVhZCB0aGF0IHRoZSB0cnVlIG1lYW4gaXMgYXQgYSBkaWZmZXJlbnQsIGV4cGxpY2l0bHkgc3BlY2lmaWVkIGxldmVsLCBhbmQgdGhlbiBmaW5kIHRoZSBwcm9iYWJpbGl0eSBhIHNhbXBsZSBjb3VsZCBiZSBmb3VuZCB3aXRoaW4gdGhlIG9yaWdpbmFsIGNvbmZpZGVuY2UgaW50ZXJ2YWwuDQoNCiMgQ2FsY3VsYXRpbmcgVGhlIFBvd2VyIFVzaW5nIGEgTm9ybWFsIERpc3RyaWJ1dGlvbg0KDQpIZXJlIHdlIGNhbGN1bGF0ZSB0aGUgcG93ZXIgb2YgYSB0ZXN0IGZvciBhIG5vcm1hbCBkaXN0cmlidXRpb24uIA==</div>
+<div id="rmd-source-code">LS0tDQp0aXRsZTogIkNhbGN1bGF0aW5nIHBvd2VyIG9mIGEgdGVzdCINCm91dHB1dDogaHRtbF9ub3RlYm9vaw0KLS0tDQoNCiMgSW50cm9kdWN0aW9uDQoNCldpdGggcHJldmlvdXMgZXhhbXBsZSwgd2UgcHJhY3RpY2VkIGhvdyB0byBjYWxjdWxhdGUgKnAtdmFsdWVzKiBmcm9tIHRoZSBkYXRhc2V0IHdpdGggZGlmZmVyZW50IGRpc3RyaWJ1dGlvbnMuIEhlcmUsIHdlIHdpbGwgdHJ5IHNvbWUgcHJhY3RpY2VzIHRvIGNhbGN1bGF0ZSB0aGUgcG93ZXIgb2YgYSB0ZXN0LiBTYW1lIGFzIHByZXZpb3VzIGV4YW1wbGUsIHRoZSAqKm5vcm1hbCBkaXN0cmlidXRpb24qKiBhbmQgKip0LWRpc3RyaWJ1dGlvbioqIHdpbGwgYmUgdXNlZCBmb3IgcHJhY3RpY2UuDQoNCkFsbCBvZiB0aGUgZXhhbXBsZXMgaGVyZSBhcmUgZm9yIGEgKip0d28tc2lkZWQgdGVzdCoqLCBhbmQgeW91IGNhbiBhZGp1c3QgdGhlbSBhY2NvcmRpbmdseSBmb3IgYSBvbmUtc2lkZWQgdGVzdC4NCg0KIyMgUG93ZXIgb2YgQSBUZXN0DQoNCioqVGhlIHBvd2VyIG9mIGEgdGVzdCoqIGlzIHRoZSBwcm9iYWJpbGl0eSB0aGF0IHdlIGNhbiB0aGUgcmVqZWN0IG51bGwgaHlwb3RoZXNpcyBhdCBhIGdpdmVuIG1lYW4gdGhhdCBpcyBhd2F5IGZyb20gdGhlIG9uZSBzcGVjaWZpZWQgaW4gdGhlIG51bGwgaHlwb3RoZXNpcy4gV2UgY2FsY3VsYXRlIHRoaXMgcHJvYmFiaWxpdHkgYnkgZmlyc3QgY2FsY3VsYXRpbmcgdGhlIHByb2JhYmlsaXR5IHRoYXQgd2UgYWNjZXB0IHRoZSBudWxsIGh5cG90aGVzaXMgd2hlbiB3ZSBzaG91bGQgbm90LiBUaGlzIGlzIHRoZSBwcm9iYWJpbGl0eSB0byBtYWtlIGEgdHlwZSBJSSBlcnJvci4gSGVuY2UsIHRoZSBwb3dlciBpcyB0aGUgKipwcm9iYWJpbGl0eSB0aGF0IHdlIGRvIG5vdCBtYWtlIGEgdHlwZSBJSSBlcnJvcioqIHNvIHdlIHRoZW4gdGFrZSBvbmUgbWludXMgdGhlIHJlc3VsdCB0byBnZXQgdGhlIHBvd2VyLg0KDQpXZSBjYW4gZmFpbCB0byByZWplY3QgdGhlIG51bGwgaHlwb3RoZXNpcyBpZiB0aGUgc2FtcGxlIGhhcHBlbnMgdG8gYmUgd2l0aGluIHRoZSBjb25maWRlbmNlIGludGVydmFsIHdlIGZpbmQgd2hlbiB3ZSBhc3N1bWUgdGhhdCB0aGUgbnVsbCBoeXBvdGhlc2lzIGlzIHRydWUuIFRvIGdldCB0aGUgKmNvbmZpZGVuY2UgaW50ZXJ2YWwqLCB3ZSBmaW5kIHRoZSBtYXJnaW4gb2YgZXJyb3IgYW5kIHRoZW4gYWRkIGFuZCBzdWJ0cmFjdCBpdCB0byB0aGUgcHJvcG9zZWQgbWVhbiwgYSwgdG8gZ2V0IHRoZSBjb25maWRlbmNlIGludGVydmFsLiBXZSB0aGVuIHR1cm4gYXJvdW5kIGFuZCBhc3N1bWUgaW5zdGVhZCB0aGF0IHRoZSB0cnVlIG1lYW4gaXMgYXQgYSBkaWZmZXJlbnQsIGV4cGxpY2l0bHkgc3BlY2lmaWVkIGxldmVsLCBhbmQgdGhlbiBmaW5kIHRoZSBwcm9iYWJpbGl0eSBhIHNhbXBsZSBjb3VsZCBiZSBmb3VuZCB3aXRoaW4gdGhlIG9yaWdpbmFsIGNvbmZpZGVuY2UgaW50ZXJ2YWwuDQoNCiMgQ2FsY3VsYXRpbmcgVGhlIFBvd2VyIFVzaW5nIGEgTm9ybWFsIERpc3RyaWJ1dGlvbg0KDQpIZXJlIHdlIGNhbGN1bGF0ZSB0aGUgcG93ZXIgb2YgYSB0ZXN0IGZvciBhIG5vcm1hbCBkaXN0cmlidXRpb24uIEluIHRoZSBleGFtcGxlIGJlbG93IHRoZSBoeXBvdGhlc2lzIHRlc3QgaXMsIEgwOs68eD01Lg0KDQpXZSB3aWxsIGFzc3VtZSB0aGF0IHRoZSAqc3RhbmRhcmQgZGV2aWF0aW9uKiBpcyAyLCBhbmQgdGhlICpzYW1wbGUgc2l6ZSogaXMgMjAuIEluIHRoZSBleGFtcGxlIGJlbG93IHdlIHdpbGwgdXNlIGEgOTUlIGNvbmZpZGVuY2UgbGV2ZWwgYW5kIHdpc2ggdG8gZmluZCB0aGUgcG93ZXIgdG8gZGV0ZWN0IGEgdHJ1ZSBtZWFuIHRoYXQgZGlmZmVycyBmcm9tIDUgYnkgYW4gYW1vdW50IG9mIDEuNS4gKEFsbCBvZiB0aGVzZSBudW1iZXJzIGFyZSBtYWRlIHVwIHNvbGVseSBmb3IgdGhpcyBleGFtcGxlLikgVGhlIGNvbW1hbmRzIHRvIGZpbmQgdGhlIGNvbmZpZGVuY2UgaW50ZXJ2YWwgaW4gUiBhcmUgdGhlIGZvbGxvd2luZzoNCmBgYHtyfQ0KYSA8LSA1DQpzIDwtIDINCm4gPC0gMjANCmVycm9yIDwtIHFub3JtKDAuOTc1KSpzL3NxcnQobikNCmxlZnQgPC0gYS1lcnJvcg0KcmlnaHQgPC0gYStlcnJvcg0KYGBgDQoNCmBgYHtyfQ0KbGVmdA0KcmlnaHQNCmBgYA0KDQpOZXh0IHdlIGZpbmQgdGhlICpaLXNjb3JlcyogZm9yIHRoZSBsZWZ0IGFuZCByaWdodCB2YWx1ZXMgYXNzdW1pbmcgdGhhdCB0aGUgdHJ1ZSBtZWFuIGlzIDUrMS41PTYuNToNCmBgYHtyfQ0KYXNzdW1lZCA8LSBhICsgMS41DQpabGVmdCA8LSAobGVmdC1hc3N1bWVkKS8ocy9zcXJ0KG4pKQ0KWnJpZ2h0IDwtKHJpZ2h0LWFzc3VtZWQpLyhzL3NxcnQobikpDQpwIDwtIHBub3JtKFpyaWdodCktcG5vcm0oWmxlZnQpDQpwDQpgYGANCg0KVGhlIHByb2JhYmlsaXR5IHRoYXQgd2UgbWFrZSBhIHR5cGUgSUkgZXJyb3IgaWYgdGhlIHRydWUgbWVhbiBpcyA2LjUgaXMgYXBwcm94aW1hdGVseSA4LjElLiBTbyB0aGUgKnBvd2VyIG9mIHRoZSB0ZXN0KiBpcyAxLXA6DQpgYGB7cn0NCjEtcA0KYGBgDQojIENhbGN1bGF0aW5nIHRoZSBQb3dlciBVc2luZyBhIHQtRGlzdHJpYnV0aW9ucw0KDQpDYWxjdWxhdGluZyB0aGUgcG93ZXIgd2hlbiB1c2luZyBhICoqdC10ZXN0KiogaXMgc2ltaWxhciB0byB1c2luZyBhIG5vcm1hbCBkaXN0cmlidXRpb24uIE9uZSBkaWZmZXJlbmNlIGlzIHRoYXQgd2UgdXNlIHRoZSBjb21tYW5kIGFzc29jaWF0ZWQgd2l0aCB0aGUgKip0LWRpc3RyaWJ1dGlvbioqIHJhdGhlciB0aGFuIHRoZSBub3JtYWwgZGlzdHJpYnV0aW9uLiBIZXJlIHdlIHJlcGVhdCB0aGUgdGVzdCBhYm92ZSwgYnV0IHdlIHdpbGwgYXNzdW1lIHRoYXQgd2UgYXJlIHdvcmtpbmcgd2l0aCBhIHNhbXBsZSBzdGFuZGFyZCBkZXZpYXRpb24gcmF0aGVyIHRoYW4gYW4gKmV4YWN0IHN0YW5kYXJkIGRldmlhdGlvbiouDQoNCiMjIENhbGN1bGF0aW5nIFNpbmdsZSBQb3dlciBVc2luZyBhIHQtRGlzdHJpYnV0aW9ucw0KDQpXZSB3aWxsIGV4cGxvcmUgdGhyZWUgZGlmZmVyZW50IHdheXMgdG8gY2FsY3VsYXRlIHRoZSBwb3dlciBvZiBhIHRlc3QuIFRoZSBmaXJzdCBtZXRob2QgbWFrZXMgdXNlIG9mIHRoZSBzY2hlbWUgbWFueSBib29rcyByZWNvbW1lbmQgaWYgeW91ICoqZG8gbm90IGhhdmUgdGhlIG5vbi1jZW50cmFsIGRpc3RyaWJ1dGlvbioqIGF2YWlsYWJsZS4gDQoNCkFnYWluIHdlIGFzc3VtZSB0aGF0IHRoZSBzYW1wbGUgKnN0YW5kYXJkIGRldmlhdGlvbiogaXMgMiwgYW5kIHRoZSAqc2FtcGxlIHNpemUqIGlzIDIwLiBXZSB1c2UgYSAqOTUlIGNvbmZpZGVuY2UgbGV2ZWwqIGFuZCB3aXNoIHRvIGZpbmQgdGhlIHBvd2VyIHRvIGRldGVjdCBhIHRydWUgbWVhbiB0aGF0IGRpZmZlcnMgZnJvbSA1IGJ5IGFuIGFtb3VudCBvZiAxLjUuIFRoZSBjb21tYW5kcyB0byBmaW5kIHRoZSBjb25maWRlbmNlIGludGVydmFsIGluIFIgYXJlIHRoZSBmb2xsb3dpbmc6DQpgYGB7cn0NCmEgPC0gNQ0KcyA8LSAyDQpuIDwtIDIwDQplcnJvciA8LSBxdCgwLjk3NSxkZj1uLTEpKnMvc3FydChuKQ0KbGVmdCA8LSBhLWVycm9yDQpyaWdodCA8LSBhK2Vycm9yDQpgYGANCg0KVGhlIG51bWJlciBvZiBvYnNlcnZhdGlvbnMgaXMgbGFyZ2UgZW5vdWdoIHRoYXQgdGhlIHJlc3VsdHMgYXJlIHF1aXRlIGNsb3NlIHRvIHRob3NlIGluIHRoZSBleGFtcGxlIHVzaW5nIHRoZSBub3JtYWwgZGlzdHJpYnV0aW9uLiBOZXh0IHdlIGZpbmQgdGhlICp0LXNjb3JlcyogZm9yIHRoZSBsZWZ0IGFuZCByaWdodCB2YWx1ZXMgYXNzdW1pbmcgdGhhdCB0aGUgdHJ1ZSBtZWFuIGlzIDUrMS41PTYuNToNCmBgYHtyfQ0KYXNzdW1lZCA8LSBhICsgMS41DQp0bGVmdCA8LSAobGVmdC1hc3N1bWVkKS8ocy9zcXJ0KG4pKQ0KdHJpZ2h0IDwtIChyaWdodC1hc3N1bWVkKS8ocy9zcXJ0KG4pKQ0KcCA8LSBwdCh0cmlnaHQsZGY9bi0xKS1wdCh0bGVmdCxkZj1uLTEpDQpwDQpgYGANCg0KVGhlICoqcHJvYmFiaWxpdHkgdGhhdCB3ZSBtYWtlIGEgdHlwZSBJSSBlcnJvcioqIGlmIHRoZSB0cnVlIG1lYW4gaXMgNi41IGlzIGFwcHJveGltYXRlbHkgMTEuMSUuIFNvIHRoZSAqKnBvd2VyIG9mIHRoZSB0ZXN0KiogaXMgMS1wOg0KYGBge3J9DQoxLXANCmBgYA0KDQpJbiB0aGlzIGV4YW1wbGUsIHRoZSAqKnBvd2VyIG9mIHRoZSB0ZXN0KiogaXMgYXBwcm94aW1hdGVseSA4OC45JS4gSWYgdGhlIHRydWUgbWVhbiBkaWZmZXJzIGZyb20gNSBieSAxLjUgdGhlbiB0aGUgcHJvYmFiaWxpdHkgdGhhdCB3ZSB3aWxsIHJlamVjdCB0aGUgbnVsbCBoeXBvdGhlc2lzIGlzIGFwcHJveGltYXRlbHkgODguOSUuIE5vdGUgdGhhdCB0aGUgcG93ZXIgY2FsY3VsYXRlZCBmb3IgYSBub3JtYWwgZGlzdHJpYnV0aW9uIGlzIHNsaWdodGx5IGhpZ2hlciB0aGFuIGZvciB0aGlzIG9uZSBjYWxjdWxhdGVkIHdpdGggdGhlICoqdC1kaXN0cmlidXRpb24qKi4NCg0KVGhlIHNlY29uZCBkb2VzIG1ha2UgKip1c2Ugb2YgdGhlIG5vbi1jZW50cmFsIGRpc3RyaWJ1dGlvbioqLCBhbmQgdGhlIHRoaXJkIG1ha2VzIHVzZSBvZiBhIHNpbmdsZSBjb21tYW5kIHRoYXQgd2lsbCBkbyBhIGxvdCBvZiB0aGUgd29yayBmb3IgdXMuIEluIG90aGVyIHdvcmRzLCB0aGlzIHdhcyBpcyB1c2luZyBhcHByb3hpbWF0ZSB0aGUgcG93ZXIgaXMgdG8gbWFrZSB1c2Ugb2YgdGhlIG5vbi1jZW50cmFsaXR5IHBhcmFtZXRlci4gVGhlIGlkZWEgaXMgdGhhdCB5b3UgZ2l2ZSBpdCB0aGUgY3JpdGljYWwgKnQtc2NvcmVzKiBhbmQgdGhlIGFtb3VudCB0aGF0IHRoZSBtZWFuIHdvdWxkIGJlIHNoaWZ0ZWQgaWYgdGhlIGFsdGVybmF0ZSBtZWFuIHdlcmUgdGhlIHRydWUgbWVhbi4NCmBgYHtyfQ0KbmNwIDwtIDEuNS8ocy9zcXJ0KG4pKQ0KdCA8LSBxdCgwLjk3NSxkZj1uLTEpDQpwdCh0LGRmPW4tMSxuY3A9bmNwKS1wdCgtdCxkZj1uLTEsbmNwPW5jcCkNCmBgYA0KDQpgYGB7cn0NCjEtKHB0KHQsZGY9bi0xLG5jcD1uY3ApLXB0KC10LGRmPW4tMSxuY3A9bmNwKSkNCmBgYA0KDQpBZ2Fpbiwgd2Ugc2VlIHRoYXQgdGhlICoqcHJvYmFiaWxpdHkgb2YgbWFraW5nIGEgdHlwZSBJSSBlcnJvcioqIGlzIGFwcHJveGltYXRlbHkgMTEuMSUsIGFuZCB0aGUgcG93ZXIgaXMgYXBwcm94aW1hdGVseSA4OC45JS4gTm90ZSB0aGF0IHRoaXMgaXMgc2xpZ2h0bHkgZGlmZmVyZW50IHRoYW4gdGhlIHByZXZpb3VzIGNhbGN1bGF0aW9uIGJ1dCBpcyBzdGlsbCBjbG9zZS4NCg0KRmluYWxseSwgdGhlcmUgaXMgb25lIG1vcmUgY29tbWFuZCB0aGF0IHdlIGV4cGxvcmUuIFRoaXMgY29tbWFuZCBhbGxvd3MgdXMgdG8gZG8gdGhlIHNhbWUgcG93ZXIgY2FsY3VsYXRpb24gYXMgYWJvdmUgYnV0IHdpdGggYSBzaW5nbGUgY29tbWFuZC4NCmBgYHtyfQ0KcG93ZXIudC50ZXN0KG49bixkZWx0YT0xLjUsc2Q9cyxzaWcubGV2ZWw9MC4wNSwgDQogICAgICAgICAgICAgdHlwZT0ib25lLnNhbXBsZSIsYWx0ZXJuYXRpdmU9InR3by5zaWRlZCIsc3RyaWN0ID0gVFJVRSkNCmBgYA0KDQpUaGlzIGlzIGEgcG93ZXJmdWwgY29tbWFuZCB0aGF0IGNhbiBkbyBtdWNoIG1vcmUgdGhhbiBqdXN0IGNhbGN1bGF0ZSB0aGUgKipwb3dlciBvZiBhIHRlc3QqKi4gRm9yIGV4YW1wbGUgaXQgY2FuIGFsc28gYmUgdXNlZCB0byBjYWxjdWxhdGUgdGhlIG51bWJlciBvZiBvYnNlcnZhdGlvbnMgbmVjZXNzYXJ5IHRvIGFjaGlldmUgYSBnaXZlbiBwb3dlci4gDQoNCiMjIENhbGN1bGF0aW5nIE11bHRpcGxlIFBvd2VycyBVc2luZyBhIHQtRGlzdHJpYnV0aW9ucw0KDQpTdXBwb3NlIHRoYXQgeW91IHdhbnQgdG8gZmluZCB0aGUgcG93ZXJzIGZvciBtYW55IHRlc3RzLiBDYWxjdWxhdGluZyBtdWx0aXBsZSBwb3dlcnMgaXMgYXZhaWxhYmxlIG9uIHNldmVyYWwgdG9vbHMgYW5kIHBhY2thZ2VzLiBIZXJlIHdlIHNlZSBob3cgaXQgY2FuIGJlIGRvbmUgaW4gUi4gV2UgdXNlIHRoZSBleGFjdCBzYW1lIGNhc2VzIGFzIGluIHRoZSBwcmV2aW91cyBjaGFwdGVyLg0KDQpIZXJlIHdlIGFzc3VtZSB0aGF0IHdlIHdhbnQgdG8gZG8gYSB0d28tc2lkZWQgaHlwb3RoZXNpcyB0ZXN0IGZvciBhIG51bWJlciBvZiBjb21wYXJpc29ucyBhbmQgd2FudCB0byBmaW5kIHRoZSBwb3dlciBvZiB0aGUgdGVzdHMgdG8gZGV0ZWN0IGEgMSBwb2ludCBkaWZmZXJlbmNlIGluIHRoZSBtZWFucy4gSW4gcGFydGljdWxhciB3ZSB3aWxsIGxvb2sgYXQgdGhyZWUgaHlwb3RoZXNpcyB0ZXN0cy4gQWxsIGFyZSBmb2xsb3dpbmcgSG86zrwx4oiSzrwy4omgMCwNCg0KRm9yIGVhY2ggb2YgdGhlc2UgY29tcGFyaXNvbnMgd2Ugd2FudCB0byBjYWxjdWxhdGUgdGhlIHBvd2VyIG9mIHRoZSB0ZXN0LiBGb3IgZWFjaCBjb21wYXJpc29uIHRoZXJlIGFyZSB0d28gZ3JvdXBzLiBXZSB3aWxsIHJlZmVyIHRvIGdyb3VwIG9uZSBhcyB0aGUgZ3JvdXAgd2hvc2UgcmVzdWx0cyBhcmUgaW4gdGhlIGZpcnN0IHJvdyBvZiBlYWNoIGNvbXBhcmlzb24gYWJvdmUuIFdlIHdpbGwgcmVmZXIgdG8gZ3JvdXAgdHdvIGFzIHRoZSBncm91cCB3aG9zZSByZXN1bHRzIGFyZSBpbiB0aGUgc2Vjb25kIHJvdyBvZiBlYWNoIGNvbXBhcmlzb24gYWJvdmUuIEJlZm9yZSB3ZSBjYW4gZG8gdGhhdCB3ZSBtdXN0IGZpcnN0IGNvbXB1dGUgYSBzdGFuZGFyZCBlcnJvciBhbmQgYSB0LXNjb3JlLiBXZSB3aWxsIGZpbmQgZ2VuZXJhbCBmb3JtdWxhZSB3aGljaCBpcyBuZWNlc3NhcnkgaW4gb3JkZXIgdG8gZG8gYWxsIHRocmVlIGNhbGN1bGF0aW9ucyBhdCBvbmNlLg0KDQpXZSBhc3N1bWUgdGhhdCB0aGUgKm1lYW5zKiBmb3IgdGhlIGZpcnN0IGdyb3VwIGFyZSBkZWZpbmVkIGluIGEgdmFyaWFibGUgY2FsbGVkIG0xLiBUaGUgbWVhbnMgZm9yIHRoZSBzZWNvbmQgZ3JvdXAgYXJlIGRlZmluZWQgaW4gYSB2YXJpYWJsZSBjYWxsZWQgbTIuIFRoZSAqc3RhbmRhcmQgZGV2aWF0aW9ucyogZm9yIHRoZSBmaXJzdCBncm91cCBhcmUgaW4gYSB2YXJpYWJsZSBjYWxsZWQgc2QxLiBUaGUgc3RhbmRhcmQgZGV2aWF0aW9ucyBmb3IgdGhlIHNlY29uZCBncm91cCBhcmUgaW4gYSB2YXJpYWJsZSBjYWxsZWQgc2QyLiBUaGUgKm51bWJlciBvZiBzYW1wbGVzKiBmb3IgdGhlIGZpcnN0IGdyb3VwIGFyZSBpbiBhIHZhcmlhYmxlIGNhbGxlZCBudW0xLiBGaW5hbGx5LCB0aGUgbnVtYmVyIG9mIHNhbXBsZXMgZm9yIHRoZSBzZWNvbmQgZ3JvdXAgYXJlIGluIGEgdmFyaWFibGUgY2FsbGVkIG51bTIuDQoNCldpdGggdGhlc2UgZGVmaW5pdGlvbnMgdGhlIHN0YW5kYXJkIGVycm9yIGlzIHRoZSBzcXVhcmUgcm9vdCBvZiAoc2QxXjIpL251bTErKHNkMl4yKS9udW0yLiBUaGUgUiBjb21tYW5kcyB0byBkbyB0aGlzIGNhbiBiZSBmb3VuZCBiZWxvdzoNCmBgYHtyfQ0KbTEgPC0gYygxMCwxMiwzMCkNCm0yIDwtIGMoMTAuNSwxMywyOC41KQ0Kc2QxIDwtIGMoMyw0LDQuNSkNCnNkMiA8LSBjKDIuNSw1LjMsMykNCm51bTEgPC0gYygzMDAsMjEwLDQyMCkNCm51bTIgPC0gYygyMzAsMzQwLDQwMCkNCnNlIDwtIHNxcnQoc2QxKnNkMS9udW0xK3NkMipzZDIvbnVtMikNCmBgYA0KDQpOb3cgd2UgbmVlZCB0byBkZWZpbmUgdGhlIGNvbmZpZGVuY2UgaW50ZXJ2YWwgYXJvdW5kIHRoZSBhc3N1bWVkIGRpZmZlcmVuY2VzLiBKdXN0IGFzIGluIHRoZSBjYXNlIG9mIGZpbmRpbmcgdGhlICpwLXZhbHVlcyogaW4gcHJldmlvdXMgY2hhcHRlciB3ZSBoYXZlIHRvIHVzZSB0aGUgKnBtaW4qIGNvbW1hbmQgdG8gZ2V0IHRoZSBudW1iZXIgb2YgKmRlZ3JlZXMgb2YgZnJlZWRvbSouIEluIHRoaXMgY2FzZSB0aGUgbnVsbCBoeXBvdGhlc2VzIGFyZSBmb3IgYSBkaWZmZXJlbmNlIG9mIHplcm8sIGFuZCB3ZSB1c2UgYSAqOTUlIGNvbmZpZGVuY2UgaW50ZXJ2YWwqKjoNCmBgYHtyfQ0KbGVmdCA8LSBxdCgwLjAyNSxkZj1wbWluKG51bTEsbnVtMiktMSkqc2UNCnJpZ2h0IDwtIC1sZWZ0DQpgYGANCg0KV2UgY2FuIG5vdyBjYWxjdWxhdGUgdGhlICoqcG93ZXIgb2YgdGhlIG9uZS1zaWRlZCB0ZXN0KiouIEFzc3VtaW5nIGEgdHJ1ZSBtZWFuIG9mIDEgd2UgY2FuIGNhbGN1bGF0ZSB0aGUgdC1zY29yZXMgYXNzb2NpYXRlZCB3aXRoIGJvdGggdGhlIGxlZnQgYW5kIHJpZ2h0IHZhcmlhYmxlczoNCmBgYHtyfQ0KdGwgPC0gKGxlZnQtMSkvc2UNCnRyIDwtIChyaWdodC0xKS9zZQ0KDQpwcm9iSUkgPC0gcHQodHIsZGY9cG1pbihudW0xLG51bTIpLTEpIC0gcHQodGwsZGY9cG1pbihudW0xLG51bTIpLTEpDQoNCnBvd2VyIDwtIDEtcHJvYklJDQoNCnBvd2VyDQpgYGANCg0KVGhlIHJlc3VsdHMgZnJvbSB0aGUgY29tbWFuZCBhYm92ZSBzaG91bGQgZ2l2ZSB5b3UgdGhlIHAtdmFsdWVzIGZvciBhIHR3by1zaWRlZCB0ZXN0LiBJdCBpcyBsZWZ0IGFzIGFuIGV4ZXJjaXNlIGhvdyB0byBmaW5kIHRoZSAqcC12YWx1ZXMqIGZvciBhICoqb25lLXNpZGVkIHRlc3QqKi4NCg0KSnVzdCBhcyB3YXMgZm91bmQgYWJvdmUgdGhlcmUgaXMgbW9yZSB0aGFuIG9uZSB3YXkgdG8gKipjYWxjdWxhdGUgdGhlIHBvd2VyKiouIFdlIGFsc28gaW5jbHVkZSB0aGUgbWV0aG9kIHVzaW5nIHRoZSAqbm9uLWNlbnRyYWwgcGFyYW1ldGVyKiB3aGljaCBpcyByZWNvbW1lbmRlZCBvdmVyIHRoZSBwcmV2aW91cyBtZXRob2Q6DQpgYGB7cn0NCnQgPC0gcXQoMC45NzUsZGY9cG1pbihudW0xLG51bTIpLTEpDQoNCg0KbmNwIDwtICgxKS9zZQ0KcHQodCxkZj1wbWluKG51bTEsbnVtMiktMSxuY3A9bmNwKS1wdCgtdCxkZj1wbWluKG51bTEsbnVtMiktMSxuY3A9bmNwKQ0KYGBgDQoNCmBgYHtyfQ0KMS0ocHQodCxkZj1wbWluKG51bTEsbnVtMiktMSxuY3A9bmNwKS1wdCgtdCxkZj1wbWluKG51bTEsbnVtMiktMSxuY3A9bmNwKSkNCmBgYA0KDQoNCg==</div>
 
 
 

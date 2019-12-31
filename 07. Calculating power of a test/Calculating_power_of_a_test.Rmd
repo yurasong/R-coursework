@@ -49,5 +49,111 @@ The probability that we make a type II error if the true mean is 6.5 is approxim
 ```
 # Calculating the Power Using a t-Distributions
 
+Calculating the power when using a **t-test** is similar to using a normal distribution. One difference is that we use the command associated with the **t-distribution** rather than the normal distribution. Here we repeat the test above, but we will assume that we are working with a sample standard deviation rather than an *exact standard deviation*.
+
 ## Calculating Single Power Using a t-Distributions
+
+We will explore three different ways to calculate the power of a test. The first method makes use of the scheme many books recommend if you **do not have the non-central distribution** available. 
+
+Again we assume that the sample *standard deviation* is 2, and the *sample size* is 20. We use a *95% confidence level* and wish to find the power to detect a true mean that differs from 5 by an amount of 1.5. The commands to find the confidence interval in R are the following:
+```{r}
+a <- 5
+s <- 2
+n <- 20
+error <- qt(0.975,df=n-1)*s/sqrt(n)
+left <- a-error
+right <- a+error
+```
+
+The number of observations is large enough that the results are quite close to those in the example using the normal distribution. Next we find the *t-scores* for the left and right values assuming that the true mean is 5+1.5=6.5:
+```{r}
+assumed <- a + 1.5
+tleft <- (left-assumed)/(s/sqrt(n))
+tright <- (right-assumed)/(s/sqrt(n))
+p <- pt(tright,df=n-1)-pt(tleft,df=n-1)
+p
+```
+
+The **probability that we make a type II error** if the true mean is 6.5 is approximately 11.1%. So the **power of the test** is 1-p:
+```{r}
+1-p
+```
+
+In this example, the **power of the test** is approximately 88.9%. If the true mean differs from 5 by 1.5 then the probability that we will reject the null hypothesis is approximately 88.9%. Note that the power calculated for a normal distribution is slightly higher than for this one calculated with the **t-distribution**.
+
+The second does make **use of the non-central distribution**, and the third makes use of a single command that will do a lot of the work for us. In other words, this was is using approximate the power is to make use of the non-centrality parameter. The idea is that you give it the critical *t-scores* and the amount that the mean would be shifted if the alternate mean were the true mean.
+```{r}
+ncp <- 1.5/(s/sqrt(n))
+t <- qt(0.975,df=n-1)
+pt(t,df=n-1,ncp=ncp)-pt(-t,df=n-1,ncp=ncp)
+```
+
+```{r}
+1-(pt(t,df=n-1,ncp=ncp)-pt(-t,df=n-1,ncp=ncp))
+```
+
+Again, we see that the **probability of making a type II error** is approximately 11.1%, and the power is approximately 88.9%. Note that this is slightly different than the previous calculation but is still close.
+
+Finally, there is one more command that we explore. This command allows us to do the same power calculation as above but with a single command.
+```{r}
+power.t.test(n=n,delta=1.5,sd=s,sig.level=0.05, 
+             type="one.sample",alternative="two.sided",strict = TRUE)
+```
+
+This is a powerful command that can do much more than just calculate the **power of a test**. For example it can also be used to calculate the number of observations necessary to achieve a given power. 
+
 ## Calculating Multiple Powers Using a t-Distributions
+
+Suppose that you want to find the powers for many tests. Calculating multiple powers is available on several tools and packages. Here we see how it can be done in R. We use the exact same cases as in the previous chapter.
+
+Here we assume that we want to do a two-sided hypothesis test for a number of comparisons and want to find the power of the tests to detect a 1 point difference in the means. In particular we will look at three hypothesis tests. All are following Ho:μ1−μ2≠0,
+
+For each of these comparisons we want to calculate the power of the test. For each comparison there are two groups. We will refer to group one as the group whose results are in the first row of each comparison above. We will refer to group two as the group whose results are in the second row of each comparison above. Before we can do that we must first compute a standard error and a t-score. We will find general formulae which is necessary in order to do all three calculations at once.
+
+We assume that the *means* for the first group are defined in a variable called m1. The means for the second group are defined in a variable called m2. The *standard deviations* for the first group are in a variable called sd1. The standard deviations for the second group are in a variable called sd2. The *number of samples* for the first group are in a variable called num1. Finally, the number of samples for the second group are in a variable called num2.
+
+With these definitions the standard error is the square root of (sd1^2)/num1+(sd2^2)/num2. The R commands to do this can be found below:
+```{r}
+m1 <- c(10,12,30)
+m2 <- c(10.5,13,28.5)
+sd1 <- c(3,4,4.5)
+sd2 <- c(2.5,5.3,3)
+num1 <- c(300,210,420)
+num2 <- c(230,340,400)
+se <- sqrt(sd1*sd1/num1+sd2*sd2/num2)
+```
+
+Now we need to define the confidence interval around the assumed differences. Just as in the case of finding the *p-values* in previous chapter we have to use the *pmin* command to get the number of *degrees of freedom*. In this case the null hypotheses are for a difference of zero, and we use a *95% confidence interval**:
+```{r}
+left <- qt(0.025,df=pmin(num1,num2)-1)*se
+right <- -left
+```
+
+We can now calculate the **power of the one-sided test**. Assuming a true mean of 1 we can calculate the t-scores associated with both the left and right variables:
+```{r}
+tl <- (left-1)/se
+tr <- (right-1)/se
+
+probII <- pt(tr,df=pmin(num1,num2)-1) - pt(tl,df=pmin(num1,num2)-1)
+
+power <- 1-probII
+
+power
+```
+
+The results from the command above should give you the p-values for a two-sided test. It is left as an exercise how to find the *p-values* for a **one-sided test**.
+
+Just as was found above there is more than one way to **calculate the power**. We also include the method using the *non-central parameter* which is recommended over the previous method:
+```{r}
+t <- qt(0.975,df=pmin(num1,num2)-1)
+
+
+ncp <- (1)/se
+pt(t,df=pmin(num1,num2)-1,ncp=ncp)-pt(-t,df=pmin(num1,num2)-1,ncp=ncp)
+```
+
+```{r}
+1-(pt(t,df=pmin(num1,num2)-1,ncp=ncp)-pt(-t,df=pmin(num1,num2)-1,ncp=ncp))
+```
+
+
