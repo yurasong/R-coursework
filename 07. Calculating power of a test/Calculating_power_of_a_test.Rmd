@@ -17,4 +17,37 @@ We can fail to reject the null hypothesis if the sample happens to be within the
 
 # Calculating The Power Using a Normal Distribution
 
-Here we calculate the power of a test for a normal distribution. 
+Here we calculate the power of a test for a normal distribution. In the example below the hypothesis test is, H0:μx=5.
+
+We will assume that the *standard deviation* is 2, and the *sample size* is 20. In the example below we will use a 95% confidence level and wish to find the power to detect a true mean that differs from 5 by an amount of 1.5. (All of these numbers are made up solely for this example.) The commands to find the confidence interval in R are the following:
+```{r}
+a <- 5
+s <- 2
+n <- 20
+error <- qnorm(0.975)*s/sqrt(n)
+left <- a-error
+right <- a+error
+```
+
+```{r}
+left
+right
+```
+
+Next we find the *Z-scores* for the left and right values assuming that the true mean is 5+1.5=6.5:
+```{r}
+assumed <- a + 1.5
+Zleft <- (left-assumed)/(s/sqrt(n))
+Zright <-(right-assumed)/(s/sqrt(n))
+p <- pnorm(Zright)-pnorm(Zleft)
+p
+```
+
+The probability that we make a type II error if the true mean is 6.5 is approximately 8.1%. So the *power of the test* is 1-p:
+```{r}
+1-p
+```
+# Calculating the Power Using a t-Distributions
+
+## Calculating Single Power Using a t-Distributions
+## Calculating Multiple Powers Using a t-Distributions
