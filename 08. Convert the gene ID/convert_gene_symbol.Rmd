@@ -1,0 +1,83 @@
+---
+title: "Convert human gene to mouse gene"
+author: "Yura SONG"
+output: html_notebook
+---
+
+# Introduction
+
+Although the genomic information between human and mouse reference genome could be done by [liftover](https://genome.ucsc.edu/cgi-bin/hgLiftOver) tools from [UCSC genome browser](https://genome.ucsc.edu/index.html), converting mouse gene names to the human equivalent and vice versa is not always as straightforward as it seems,  Here, **biomaRt**, interface to BioMart databases, will be used for the conversion of gene symbols.
+
+If the **biomaRt** is not installed, the package should be installed by **BiocManager**. 
+
+```{r, message=F, warning=F}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("biomaRt")
+```
+
+# Convert mouse gene to human genes
+
+Since the conversion of gene symbols are not straightforward, here, we will write a function to convert it, including The function takes advantage of the *getLDS()* function from the biomaRt to get the hgnc symbol equivalent from the mgi symbol. 
+
+For example, let’s convert the following mouse gene symbols, Hmmr, Tlx3, and Cpeb4, to their human equivalent. The input should be in list format.
+```{r}
+musGenes <- c("Hmmr", "Tlx3", "Cpeb4")
+class(musGenes)
+```
+
+Here, we will define the function.
+```{r}
+convertMouseGeneList <- function(x){
+  
+  require("biomaRt")
+  human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+  mouse = useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+  
+  genesV2 = getLDS(attributes = c("mgi_symbol"), filters = "mgi_symbol", values = x , mart = mouse, attributesL = c("hgnc_symbol"),
+                   martL = human, uniqueRows=T)
+  humanx <- unique(genesV2[, 2])
+  
+  # Print the first 6 genes found to the screen
+  print(head(humanx))
+  return(humanx)
+}
+```
+
+The function takes an input as the list of genes, and it will change the mouse gene names to the human gene name. Now, we could use the function to get the converted gene symbols.
+```{r}
+genes <- convertMouseGeneList(musGenes)
+genes
+```
+
+# Convert human gene to mouse genes
+
+Then mouse to human? It is also available by defining the same function, but only difference is changing the attributes. 
+
+```{r}
+humGenes <- c("DBT", "COP1", "PRUNE1", "ICMT", "PINK1", "KHDRBS1", "NUDC", "PUM1", "THRAP3", "GPBP1L1", "RNF220", "TCEANC2", "FAF1", "PIGK", "GCLM", "RAP1A", "WDR3", "SMG5", "ACBD6")
+```
+
+Here, we will define the function. Now, the purpose of this function is **converting the mouse gene symbol to human**.
+```{r}
+convertHumanGeneList <- function(x){
+  
+  require("biomaRt")
+  human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+  mouse = useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+  
+  genesV2 = getLDS(attributes = c("hgnc_symbol"), filters = "hgnc_symbol", values = x , mart = human, attributesL = c("mgi_symbol"),
+                   martL = mouse, uniqueRows=T)
+  mousex <- unique(genesV2[, 2])
+  
+  # Print the first 6 genes found to the screen
+  print(head(mousex))
+  return(mousex)
+}
+```
+
+```{r}
+gene_mouse <- convertHumanGeneList(humGenes)
+```
+
