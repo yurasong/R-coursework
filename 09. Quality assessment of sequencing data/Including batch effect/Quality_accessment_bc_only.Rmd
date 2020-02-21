@@ -1,0 +1,638 @@
+---
+title: "Differential Expressed Gene analysis - Prostate Duct and Tip"
+subtitle: "Project - Elisavet Tika, including new batch and BC subset only"
+author: "Yura SONG"
+date: "15 Oct 2019"
+output: html_notebook
+---
+
+# Introduction
+
+We tried to figure out whether the new batch makes the cluster as we expected or not. Although we tried to figure out the batch effect correction, it did not work that well. In this notebook, only BC will be dealt with since the only BC-derived samples are sequenced in new batch.
+
+# Preparation
+
+Before starting the analysis on the RNA-seq data, the first thing to do is attaching libraries which we need further.
+```{r attach library}
+library(DESeq2)
+library(pheatmap)
+library(RColorBrewer)
+```
+
+For starting analysis, we will import raw-count data. Raw-count table includes the counts of reads in each transcript, counted by HTseq-count. The genes whether counts is zero on all samples or the mitochondreal genes, they were filtered out.
+```{r import raw count}
+count <- read.delim("../Counts/Elsa_merged_RNA_rawcount.csv", h=T, sep=",")
+head(count)
+```
+
+It seems that the data is successfully imported. What we need to do is generate the matrices which will be used for generating DESeq2 object. One matrix will include raw-count of gene expression and another will composed of the sample information. 
+
+```{r making countData}
+countData <- count[,2:11]
+rownames(countData) <- count[,1]
+```
+
+```{r making colData}
+colData <- data.frame(condition=c("B13D", "B13T", "B13T", "B13T", "B13D", "B13D", "BAT", "BAT", "BAD", "BAD"),
+                      precise=c("ETI1_B13D", "ETI2_B13T","Elsa1_B13T1","Elsa2_B13T3", "Elsa3_B13D1","Elsa4_B13D2","Elsa5_BAT1", "Elsa6_BAT2","Elsa7_BAD1","Elsa8_BAD2"),
+                      batch=c(rep("2", 2), rep("1", 8)))
+rownames(colData) <- colnames(countData)
+head(colData)
+```
+
+##DESeq2 object
+
+To build a DESeq Data Set object, we need to provide 3 elements: 1. A matrix of raw read counts for all genes in all samples, countData in our case. 2. A dataframe providing information about all samples, colData in our case. 3. A design, which we would like to compare each other. It’s simply the condition of sample. We use condition because it corresponds to the column name in colData.
+
+We will build DESeq2 object, for calculating the size factor. Also, not like previously, **both batch and condition** should be considered.
+
+```{r DESeq2 object}
+dds <- DESeqDataSetFromMatrix(countData, colData, design = ~batch + condition)
+```
+
+While the pre-filteration of low count before running DESeq2 is not mandatory, there are two reasons which make pre-filtering useful: by removing rows in which there are very few reads, we reduce the memory size of the dds data object, and we increase the speed of the transformation and testing functions within DESeq2. Here we perform a minimal pre-filtering to keep only rows that have at least 10 reads total. Note that more strict filtering to increase power is automatically applied via independent filtering on the mean of normalized counts within the results function.
+```{r filtration}
+keep <- rowSums(counts(dds)) > 10
+dds <- dds[keep,]
+```
+
+##Normalization
+
+We will do data normalization as a first step of data normalization. The first parameter that influences gene read counts is the sequencing depth, the gene will get more or less reads depending on how much the samples were sequenced. For this reason, we need to do normalize the data for sequencing depth.
+
+In DESeq2, with estimateSizeFactors function that uses the median ratio method.Ssize factor for each sample would be calculated and it corresponds to the multiplication factor which could be used to normalize the counts for sample sequencing depth.
+```{r size factor calculation}
+dds <- estimateSizeFactors(dds)
+sizeFactors(dds)
+```
+
+The size factors are calculated! For the normalization, we will see the read count distribution before normalization and after normalization on DESeq2. Let’s have a look.
+```{r before normalization}
+boxplot(log2(1 + counts(dds, normalized = FALSE) ), las=3, cex.axis=0.8, ylab="log2(1+counts)", main="Before normalization")
+```
+
+```{r after normalization}
+boxplot(log2(1 + counts(dds, normalized = TRUE) ), las=3, cex.axis=0.8, ylab="log2(1+counts)", main="After normalization")
+```
+
+Can you catch the difference before and after normalization? Also, for the log-transformed count values, they are really helpful for visualization, to catch the tendency between samples.
+
+##Data transformation
+
+Transformations are also important for variance stabilization. When we want to compare samples or perform statistical test, we need to make sure that the signal is not dominated by a certain class of genes, for instance, the peaks whose peak intensity is too high or too low. Indeed, for highly expressed genes, a few percent of variation in expression will translate into large differences in absolute number of reads.
+
+In our case, the regularized log transformation of the gene counts for all samples is performed using the rlog function on the DESeq2 Data Set object.
+
+```{r reg-log transformation}
+rld <- rlog(dds)
+```
+
+#Quality accessment
+
+##Expression values on replicates
+
+As a first step of quality accessment, we could compare the the counts for two biological replicates to see the impact of the transformations. I will draw the plot separately, for catching the information easier.
+
+```{r replicate - B13T}
+par(mfrow=c(2,3))
+plot( counts(dds, normalized = TRUE)[,2:3], pch=16, cex=0.5, main = "No transf-ETI2 vs B13T1")
+abline(0, 1, lty=4, col="red")
+plot( counts(dds, normalized = TRUE)[,2:4], pch=16, cex=0.5, main = "No transf-ETI2 vs B13T3")
+abline(0, 1, lty=4, col="red")
+plot( counts(dds, normalized = TRUE)[,3:4], pch=16, cex=0.5, main = "No transf-B13T1 vs B13T3")
+abline(0, 1, lty=4, col="red")
+
+plot( assay(rld)[,2:3], pch=16, cex=0.5, main="Reg-log-ETI2 vs B13T1", xlim=c(0,20), ylim=c(0,20))
+abline(0, 1, lty=4, col="red")
+plot( assay(rld)[,2:4], pch=16, cex=0.5, main = "Reg-log-ETI2 vs B13T3", xlim=c(0,20), ylim=c(0,20))
+abline(0, 1, lty=4, col="red")
+plot( assay(rld)[,3:4], pch=16, cex=0.5, main = "Reg-log--B13T1 vs B13T3", xlim=c(0,20), ylim=c(0,20))
+abline(0, 1, lty=4, col="red")
+```
+
+```{r replicate - B13D}
+par(mfrow=c(2,3))
+plot( counts(dds, normalized = TRUE)[,1:5], pch=16, cex=0.5, main = "No transf-ETI1 vs B13D1")
+abline(0, 1, lty=4, col="red")
+plot( counts(dds, normalized = TRUE)[,1:6], pch=16, cex=0.5, main = "No transf-ETI1 vs B13D2")
+abline(0, 1, lty=4, col="red")
+plot( counts(dds, normalized = TRUE)[,5:6], pch=16, cex=0.5, main = "No transf-B13D1 vs B13D2")
+abline(0, 1, lty=4, col="red")
+
+plot( assay(rld)[,4:5], pch=16, cex=0.5, main="Reg-log-ETI1 vs B13D1", xlim=c(0,20), ylim=c(0,20))
+abline(0, 1, lty=4, col="red")
+plot( assay(rld)[,4:6], pch=16, cex=0.5, main = "Reg-log-ETI1 vs B13D2", xlim=c(0,20), ylim=c(0,20))
+abline(0, 1, lty=4, col="red")
+plot( assay(rld)[,5:6], pch=16, cex=0.5, main = "Reg-log-B13D1 vs B13D2", xlim=c(0,20), ylim=c(0,20))
+abline(0, 1, lty=4, col="red")
+```
+
+```{r replicate - BAT and BAD}
+par(mfrow=c(2,2))
+plot( counts(dds, normalized = TRUE)[,7:8], pch=16, cex=0.5, main = "No transformation-BAT")
+abline(0, 1, lty=4, col="red")
+plot( counts(dds, normalized = TRUE)[,9:10], pch=16, cex=0.5, main = "No transformation-BAD")
+abline(0, 1, lty=4, col="red")
+
+plot( assay(rld)[,7:8], pch=16, cex=0.5, main="Reg-log transformation-BAT", xlim=c(0,20), ylim=c(0,20))
+abline(0, 1, lty=4, col="red")
+plot( assay(rld)[,9:10], pch=16, cex=0.5, main="Reg-log transformation-BAD", xlim=c(0,20), ylim=c(0,20))
+abline(0, 1, lty=4, col="red")
+```
+
+Could you see that the count values after regulazied log-transformation are closer to the tendency line compared to the data without transformation? It is a lot clear to see that the data transformation and normalization was done well. Now, we can use this transformed data to compare the samples and evaluate globally how similar/different they are.
+
+##Clustering and Principal Component Analysis
+
+###Clustering based on the euclidean distance
+
+We will show two classical approaches to sample comparison. - Clustering based on euclidean distances between samples - Principal Component Analysis
+
+First one is **Euclidean distance** between samples. The Euclidean distance is straight-line distance between two points in an Euclidean space. It could be simply understood, just distance between the two point! Similarly, we can calculate distances for all possible pairs of samples. However, we will use the multi-dimentional space with as many dimensions as the number of genes we want to take into account for that calculation.
+
+In the present case, we will simply use all genes for which we have counts. We’ll make sure to use normalized and rlog transformed data so that the distance doesn’t simply reflect sequencing depth and is not dominated by a subset of genes.
+```{r euclidean distance}
+sampleDists <- dist( t( assay(rld) ) )
+```
+
+Then we will generate heatmaps for this euclidean distance between samples to visualize the distance, how much samples are far or near. For heatmap, **normalized regularized-log-transformed** data was used.
+```{r plotting cluster}
+sampleDistMatrix <- as.matrix( sampleDists ) 
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255) 
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows=sampleDists,
+         clustering_distance_cols=sampleDists,
+         col=colors,
+         annotation_col =colData[,c(1,3)]
+         )
+```
+
+###Correlation plot
+
+Also, we could check the correlation between replicates by calculating **Pearson correlation coefficient**. They could be reported as heatmap with clustering, as similar way of previous plot.
+```{r correlation plot}
+# calculate correlation between pairs of samples for all possible pairs.
+sampleCor <- cor(assay(rld))
+# generate heatmap
+pheatmap(
+  as.matrix(sampleCor),
+  annotation_col =as.data.frame(colData(rld)[,c(1,3)]),
+  main = "Correlation clustering",
+  width = 12,
+  height = 10
+)
+```
+
+###PCA plot
+Next one is **Principal Component Analysis**, as known as PCA. Principal Component Analysis is a classical dimensionality reduction method. The point is to reduce the number of dimensions to something manageable while loosing a minimal amount of information.
+
+For visualization, the other packages need to be attached.
+```{r attach additional libraries}
+library(factoextra)
+library(ggfortify)
+library(ggrepel)
+```
+
+Since the data is already transformed, the scaling is not required. Let’s check how many dimensions are explaining the variances.
+```{r dimention for variances}
+pca <- prcomp(t(assay(rld)), center=TRUE, scale.=FALSE)
+fviz_eig(pca)
+```
+
+So there are total 10 explained variances and mostly are explained by PC1 and PC2. To reduce the dimensions which explains the variance, let’s check the data by PCA plot.
+```{r pca plot}
+plotPCA(rld, intgroup="condition") + geom_text_repel(aes(label = colData(rld)$precise))
+```
+
+```{r pca plot batch}
+plotPCA(rld, intgroup="batch") + geom_text_repel(aes(label = colData(rld)$precise))
+```
+
+##Batch effect removed
+```{r batch effect correction}
+vsd <- vst(dds, blind=FALSE)
+
+mat <- assay(vsd)
+mat <- limma::removeBatchEffect(mat, vsd$batch)
+assay(vsd) <- mat
+plotPCA(vsd) + geom_text_repel(aes(label = colData(rld)$precise)) + ggtitle("Sample PCA, regularized-log-transformed normalized data")
+```
+
+### Quality accessment after batch effect correction
+
+On the PCA plot, it seems that the batch effect correction works, although not perfectly. Since the PCA plot is one of the method to see the variances by dimention reduction, we need to check the correlation and clustering as we did before batch effect correction.
+
+```{r euclidean distance vsd}
+sampleDists_vsd <- dist( t( assay(vsd) ) )
+```
+
+```{r plotting cluster vsd}
+sampleDistMatrix <- as.matrix( sampleDists_vsd ) 
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255) 
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows=sampleDists_vsd,
+         clustering_distance_cols=sampleDists_vsd,
+         col=colors,
+         annotation_col =colData[,c(1,3)]
+         )
+```
+
+```{r correlation plot vsd}
+# calculate correlation between pairs of samples for all possible pairs.
+sampleCor <- cor(assay(vsd))
+# generate heatmap
+pheatmap(
+  as.matrix(sampleCor),
+  annotation_col =as.data.frame(colData(vsd)[,c(1,3)]),
+  main = "Correlation clustering",
+  width = 12,
+  height = 10
+)
+```
+
+#DEG analysis
+
+From the quality accessment result, we decided to exclude **ETI2** from new batch and **Elsa4** from old batch. However, since **ETI2** from new batch is not so clear to be excluded or not. Therefore, we will try two different combination for DE analysis.
+
+##Excluding Elsa4 only
+
+First trial is only removing Elsa4 for analysis. Since the data will be subset, we need to re-generate the DESeq object.
+
+```{r Excluding Elsa4}
+colData_e4 <- colData[c(1:5, 7:10),]
+colData_e4
+
+countData_e4 <- countData[, c(1:5, 7:10)]
+```
+
+For analysis, since we excluded Elsa4 from the dataset, we should generate **DESeq object** and corresponding filtration on the new subset.
+```{r DESeq2 object Excluding Elsa4}
+dds_e4 <- DESeqDataSetFromMatrix(countData_e4, colData_e4, design = ~ batch + condition)
+```
+
+```{r filtration Excluding Elsa4}
+keep_e4 <- rowSums(counts(dds)) > 10
+dds_e4 <- dds_e4[keep_e4,]
+```
+
+All the objects for analysis is ready. In this step, the dispersion and size factors will be calculated and they will be used for further analysis.
+```{r}
+dds_e4 <- DESeq(dds_e4)
+```
+
+To check whether the dispersion level is higher or not, to plot the **estimated dispersion**. 
+```{r}
+plotDispEsts(dds_e4, main="Dispersion Estimation")
+```
+
+With *results* function, a result table from a DESeq analysis will be generated. Not only the fold change, all the statistic values are included.
+```{r result excluding elsa4}
+b13d_vs_b13t <- results(dds_e4, contrast=c("condition", "B13D", "B13T"), alpha=0.1)
+bad_vs_bat <- results(dds_e4, contrast=c("condition", "BAD", "BAT"), alpha=0.1)
+b13t_vs_bad <- results(dds_e4, contrast=c("condition", "B13T", "BAD"), alpha=0.1)
+b13t_vs_bat <- results(dds_e4, contrast=c("condition", "B13T", "BAT"), alpha=0.1)
+b13d_vs_bad <- results(dds_e4, contrast=c("condition", "B13D", "BAD"), alpha=0.1)
+b13d_vs_bat <- results(dds_e4, contrast=c("condition", "B13D", "BAT"), alpha=0.1)
+```
+
+Beofre checking the DE genes, **Shrinkage** step will be added. In short, it looks at the largest fold changes that are not due to low counts and uses these to inform a prior distribution. So the large fold changes from genes with lots of statistical information are not shrunk, while the imprecise fold changes are shrunk. This allows you to compare all estimated LFC across experiments, for example, which is not really feasible without the use of a prior.
+```{r result shrinkage excluding elsa4}
+b13d_vs_b13t_sh <- lfcShrink(dds_e4, contrast=c("condition", "B13D", "B13T"), alpha=0.1)
+```
+
+```{r}
+summary(b13d_vs_b13t_sh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(b13d_vs_b13t_sh, ylim=c(-2,2), main="B13D vs B13T")
+plot(
+    x = b13d_vs_b13t_sh$log2FoldChange,
+    y = -log10(b13d_vs_b13t_sh$padj),
+    col = ifelse(b13d_vs_b13t_sh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change B13D vs B13T", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+```{r}
+bad_vs_bat_sh <- lfcShrink(dds_e4, contrast=c("condition", "BAD", "BAT"), alpha=0.1)
+summary(bad_vs_bat_sh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(bad_vs_bat_sh, ylim=c(-2,2), main="BAD vs BAT")
+plot(
+    x = bad_vs_bat_sh$log2FoldChange,
+    y = -log10(bad_vs_bat_sh$padj),
+    col = ifelse(bad_vs_bat_sh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change BAD vs BAT", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+```{r}
+b13t_vs_bad_sh <- lfcShrink(dds_e4, contrast=c("condition", "B13T", "BAD"), alpha=0.1)
+summary(b13t_vs_bad_sh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(b13t_vs_bad_sh, ylim=c(-2,2), main="B13T vs BAD")
+plot(
+    x = b13t_vs_bad_sh$log2FoldChange,
+    y = -log10(b13t_vs_bad_sh$padj),
+    col = ifelse(b13t_vs_bad_sh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change B13T vs BAD", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+```{r}
+b13t_vs_bat_sh <- lfcShrink(dds_e4, contrast=c("condition", "B13T", "BAT"), alpha=0.1)
+summary(b13t_vs_bat_sh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(b13t_vs_bat_sh, ylim=c(-2,2), main="B13T vs BAT")
+plot(
+    x = b13t_vs_bat_sh$log2FoldChange,
+    y = -log10(b13t_vs_bat_sh$padj),
+    col = ifelse(b13t_vs_bat_sh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change B13T vs BAT", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+```{r}
+b13d_vs_bad_sh <- lfcShrink(dds_e4, contrast=c("condition", "B13D", "BAD"), alpha=0.1)
+summary(b13d_vs_bad_sh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(b13d_vs_bad_sh, ylim=c(-2,2), main="B13D vs BAD")
+plot(
+    x = b13d_vs_bad_sh$log2FoldChange,
+    y = -log10(b13d_vs_bad_sh$padj),
+    col = ifelse(b13d_vs_bad_sh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change B13D vs BAD", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+```{r}
+b13d_vs_bat_sh <- lfcShrink(dds_e4, contrast=c("condition", "B13D", "BAT"), alpha=0.1)
+summary(b13d_vs_bat_sh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(b13d_vs_bat_sh, ylim=c(-2,2), main="B13D vs BAT")
+plot(
+    x = b13d_vs_bat_sh$log2FoldChange,
+    y = -log10(b13d_vs_bat_sh$padj),
+    col = ifelse(b13d_vs_bat_sh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change B13D vs BAT", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+Extract all the results
+```{r}
+b13d_vs_b13t_sh <- b13d_vs_b13t_sh[ !is.na(b13d_vs_b13t_sh$padj), ]
+b13d_vs_b13t_sh <- b13d_vs_b13t_sh[ !is.na(b13d_vs_b13t_sh$pvalue), ]
+
+write.table(data.frame(b13d_vs_b13t_sh), "DESeq2_B13T_vs_B13DElsa4_filt.csv", quote=F, sep="\t", row.names=T, col.names=T)
+
+bad_vs_bat_sh <- bad_vs_bat_sh[ !is.na(bad_vs_bat_sh$padj), ]
+bad_vs_bat_sh <- bad_vs_bat_sh[ !is.na(bad_vs_bat_sh$pvalue), ]
+write.table(data.frame(bad_vs_bat_sh), "DESeq2_BAT_vs_BADElsa4_filt.csv", quote=F, sep="\t", row.names=T, col.names=T)
+
+b13t_vs_bad_sh <- bad_vs_bat_sh[ !is.na(b13t_vs_bad_sh$padj), ]
+b13t_vs_bad_sh <- bad_vs_bat_sh[ !is.na(b13t_vs_bad_sh$pvalue), ]
+write.table(data.frame(b13t_vs_bad_sh), "DESeq2_B13T_vs_BADElsa4_filt.csv", quote=F, sep="\t", row.names=T, col.names=T)
+
+b13t_vs_bat_sh <- b13t_vs_bat_sh[ !is.na(b13t_vs_bat_sh$padj), ]
+b13t_vs_bat_sh <- b13t_vs_bat_sh[ !is.na(b13t_vs_bat_sh$pvalue), ]
+write.table(data.frame(b13t_vs_bat_sh), "DESeq2_B13T_vs_BATElsa4_filt.csv", quote=F, sep="\t", row.names=T, col.names=T)
+
+b13d_vs_bad_sh <- b13d_vs_bad_sh[ !is.na(b13d_vs_bad_sh$padj), ]
+b13d_vs_bad_sh <- b13d_vs_bad_sh[ !is.na(b13d_vs_bad_sh$pvalue), ]
+write.table(data.frame(b13d_vs_bad_sh), "DESeq2_B13D_vs_BADElsa4_filt.csv", quote=F, sep="\t", row.names=T, col.names=T)
+
+b13d_vs_bat_sh <- b13d_vs_bat_sh[ !is.na(b13d_vs_bat_sh$padj), ]
+b13d_vs_bat_sh <- b13d_vs_bat_sh[ !is.na(b13d_vs_bat_sh$pvalue), ]
+write.table(data.frame(b13d_vs_bat_sh), "DESeq2_B13D_vs_BATElsa4_filt.csv", quote=F, sep="\t", row.names=T, col.names=T)
+
+write.table(counts(dds_e4 , normalized = TRUE), "Normalized-valuesElsa4_filt.csv", quote=F, sep="\t", row.names=T, col.names=T)
+```
+
+
+## Exclude both ETI2 and Elsa4
+
+The steps are exactly same as the previous one which we excluded only Elsa4. 
+```{r}
+colData_e <- colData[c(1, 3:5, 7:10),]
+colData_e
+
+countData_e <- countData[,c(1, 3:5, 7:10)]
+```
+
+```{r}
+dds_e <- DESeqDataSetFromMatrix(countData_e, colData_e, design = ~ batch + condition)
+```
+
+```{r}
+keep_e <- rowSums(counts(dds)) > 0
+dds_e <- dds_e[keep_e,]
+```
+
+```{r}
+dds_e <- DESeq(dds_e)
+```
+
+```{r}
+plotDispEsts(dds_e, main="Dispersion Estimation")
+```
+
+```{r}
+b13d_vs_b13t_e <- results(dds_e, contrast=c("condition", "B13D", "B13T"), alpha=0.1)
+bad_vs_bat_e <- results(dds_e, contrast=c("condition", "BAD", "BAT"), alpha=0.1)
+b13t_vs_bad_e <- results(dds_e, contrast=c("condition", "B13T", "BAD"), alpha=0.1)
+b13t_vs_bat_e <- results(dds_e, contrast=c("condition", "B13T", "BAT"), alpha=0.1)
+b13d_vs_bad_e <- results(dds_e, contrast=c("condition", "B13D", "BAD"), alpha=0.1)
+b13d_vs_bat_e <- results(dds_e, contrast=c("condition", "B13D", "BAT"), alpha=0.1)
+```
+
+```{r}
+b13d_vs_b13t_esh <- lfcShrink(dds_e, contrast=c("condition", "B13D", "B13T"), alpha=0.1)
+summary(b13d_vs_b13t_esh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(b13d_vs_b13t_esh, ylim=c(-2,2), main="B13D vs B13T")
+plot(
+    x = b13d_vs_b13t_esh$log2FoldChange,
+    y = -log10(b13d_vs_b13t_esh$padj),
+    col = ifelse(b13d_vs_b13t_esh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change B13D vs B13T", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+```{r}
+bad_vs_bat_esh <- lfcShrink(dds_e, contrast=c("condition", "BAD", "BAT"), alpha=0.1)
+summary(bad_vs_bat_esh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(bad_vs_bat_esh, ylim=c(-2,2), main="BAD vs BAT")
+plot(
+    x = bad_vs_bat_esh$log2FoldChange,
+    y = -log10(bad_vs_bat_esh$padj),
+    col = ifelse(bad_vs_bat_esh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change BAD vs BAT", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+```{r}
+b13t_vs_bad_esh <- lfcShrink(dds_e, contrast=c("condition", "B13T", "BAD"), alpha=0.1)
+summary(b13t_vs_bad_esh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(b13t_vs_bad_esh, ylim=c(-2,2), main="B13T vs BAD")
+plot(
+    x = b13t_vs_bad_esh$log2FoldChange,
+    y = -log10(b13t_vs_bad_esh$padj),
+    col = ifelse(b13t_vs_bad_esh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change B13T vs BAD", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+```{r}
+b13t_vs_bat_esh <- lfcShrink(dds_e, contrast=c("condition", "B13T", "BAT"), alpha=0.1)
+summary(b13t_vs_bat_esh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(b13t_vs_bat_esh, ylim=c(-2,2), main="B13T vs BAT")
+plot(
+    x = b13t_vs_bat_esh$log2FoldChange,
+    y = -log10(b13t_vs_bat_esh$padj),
+    col = ifelse(b13t_vs_bat_esh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change B13T vs BAT", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+```{r}
+b13d_vs_bad_esh <- lfcShrink(dds_e, contrast=c("condition", "B13D", "BAD"), alpha=0.1)
+summary(b13d_vs_bad_esh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(b13d_vs_bad_esh, ylim=c(-2,2), main="B13D vs BAD")
+plot(
+    x = b13d_vs_bad_esh$log2FoldChange,
+    y = -log10(b13d_vs_bad_esh$padj),
+    col = ifelse(b13d_vs_bad_esh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change B13D vs BAD", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+```{r}
+b13d_vs_bat_esh <- lfcShrink(dds_e, contrast=c("condition", "B13D", "BAT"), alpha=0.1)
+summary(b13d_vs_bat_esh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(b13d_vs_bat_esh, ylim=c(-2,2), main="B13D vs BAT")
+plot(
+    x = b13d_vs_bat_esh$log2FoldChange,
+    y = -log10(b13d_vs_bat_esh$padj),
+    col = ifelse(b13d_vs_bat_esh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change B13D vs BAT", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+##Extracting the results
+So we decided to take the one excluding both Elsa4 and ETI2. Now, we will extract the DE analysis result. Before extracting the results as a table, the NA values on p-value and adjusted p-value column will be filtered out.
+
+```{r extract B13D vs B13T}
+b13d_vs_b13t_esh <- b13d_vs_b13t_esh[ !is.na(b13d_vs_b13t_esh$padj), ]
+b13d_vs_b13t_esh <- b13d_vs_b13t_esh[ !is.na(b13d_vs_b13t_esh$pvalue), ]
+
+write.table(data.frame(b13d_vs_b13t_esh), "DESeq2_B13T_vs_B13D.csv", quote=F, sep="\t", row.names=T, col.names=T)
+```
+
+The other comparisons will be extracted as same way.
+```{r extract results}
+bad_vs_bat_esh <- bad_vs_bat_esh[ !is.na(bad_vs_bat_esh$padj), ]
+bad_vs_bat_esh <- bad_vs_bat_esh[ !is.na(bad_vs_bat_esh$pvalue), ]
+write.table(data.frame(bad_vs_bat_esh), "DESeq2_BAT_vs_BAD.csv", quote=F, sep="\t", row.names=T, col.names=T)
+
+b13t_vs_bad_esh <- bad_vs_bat_esh[ !is.na(b13t_vs_bad_esh$padj), ]
+b13t_vs_bad_esh <- bad_vs_bat_esh[ !is.na(b13t_vs_bad_esh$pvalue), ]
+write.table(data.frame(b13t_vs_bad_esh), "DESeq2_B13T_vs_BAD.csv", quote=F, sep="\t", row.names=T, col.names=T)
+
+b13t_vs_bat_esh <- b13t_vs_bat_esh[ !is.na(b13t_vs_bat_esh$padj), ]
+b13t_vs_bat_esh <- b13t_vs_bat_esh[ !is.na(b13t_vs_bat_esh$pvalue), ]
+write.table(data.frame(b13t_vs_bat_esh), "DESeq2_B13T_vs_BAT.csv", quote=F, sep="\t", row.names=T, col.names=T)
+
+b13d_vs_bad_esh <- b13d_vs_bad_esh[ !is.na(b13d_vs_bad_esh$padj), ]
+b13d_vs_bad_esh <- b13d_vs_bad_esh[ !is.na(b13d_vs_bad_esh$pvalue), ]
+write.table(data.frame(b13d_vs_bad_esh), "DESeq2_B13D_vs_BAD.csv", quote=F, sep="\t", row.names=T, col.names=T)
+
+b13d_vs_bat_esh <- b13d_vs_bat_esh[ !is.na(b13d_vs_bat_esh$padj), ]
+b13d_vs_bat_esh <- b13d_vs_bat_esh[ !is.na(b13d_vs_bat_esh$pvalue), ]
+write.table(data.frame(b13d_vs_bat_esh), "DESeq2_B13D_vs_BAT.csv", quote=F, sep="\t", row.names=T, col.names=T)
+```
+
+Also, the normalized values from DEseq2 could be extracted. This will be used when the expression value is required.
+```{r extract normalized values}
+write.table(counts(dds_e , normalized = TRUE), "Normalized-values.csv", quote=F, sep="\t", row.names=T, col.names=T)
+```
+
+```{r}
+save.image("Elsa_BC_two_batches.RData")
+```
+
