@@ -1,0 +1,196 @@
+---
+title: "Differential Expressed Gene analysis - Rahul SARATE"
+subtitle: "Finding differentially expressed genes by DESeq2"
+author: "Yura SONG" 
+date: June 17, 2019
+output: html_notebook
+---
+
+# Introduction
+Here, the RNA-seq has been done on mouse, to compare whether the treatment could change the gene expression compared to the control groups. All replicates and samples are sequenced in same batch.
+
+# Preparation
+
+Before starting the analysis on the RNA-seq data, the first thing to do is attaching libraries which we need further.
+```{r loading required libraries}
+library(DESeq2)
+library(pheatmap)
+library(RColorBrewer)
+library(tidyverse)
+library(ggrepel)
+library(ggfortify)
+```
+
+## Data preparation
+
+For starting analysis, we will import raw-count data. Raw-count table includes the counts of reads in each transcript, counted by HTseq-count. The genes whether counts is zero on all samples or the mitochondreal genes, they were filtered out.
+```{r import raw count}
+count <- read.delim("data/rawcount.csv", h=T, sep=",")
+head(count)
+```
+
+It seems that the data is successfully imported. 
+
+The quality assessment will be based on the DESeq2, therefore, we should generate the matrices which will be used for generating DESeq2 object. One matrix will include raw-count of gene expression and another will composed of the sample information. 
+```{r making metadata}
+# Count matrix
+countData <- count[,2:ncol(count)]
+rownames(countData) <- count[,1]
+```
+
+For sample information, the condition of sample, precise name of samples, and batch effect are required. For batch information, *rep()* could be used, rather than putting same information for several times.
+```{r}
+colData <- data.frame(condition=c("Control", "Control", "Exp", "Exp"), 
+                      precise=c("CTRL1", "CTRL2", "Exp1", "Exp2"))
+rownames(colData) <- colnames(countData)
+colData
+```
+
+##DESeq2 object
+
+To build a DESeq Data Set object, we need to provide 3 elements: 1. A matrix of raw read counts for all genes in all samples, countData in our case. 2. A dataframe providing information about all samples, colData in our case. 3. A design, which we would like to compare each other. It’s simply the condition of sample. We use condition because it corresponds to the column name in colData.
+
+When giving the design of DESeq2, we should consider which one wil be put as the factor. It means that, when the DESeq2 sets the model, we should clarify which one is different condition. In this case, we only have **condition** term to consider.
+```{r}
+dds <- DESeqDataSetFromMatrix(countData, colData, design = ~ condition)
+```
+
+While the pre-filteration of low count before running DESeq2 is not mandatory, there are two reasons which make pre-filtering useful: by removing rows in which there are very few reads, we reduce the memory size of the dds data object, and we increase the speed of the transformation and testing functions within DESeq2. Here we perform a minimal pre-filtering to keep only rows if there is at least one gene has expression. Note that more strict filtering to increase power is automatically applied via independent filtering on the mean of normalized counts within the results function.
+```{r filtration}
+keep <- rowSums(counts(dds)) > 0
+dds <- dds[keep,]
+```
+
+# Pre-process
+
+## Normalization
+We will do data normalization as a first step of data normalization. The first parameter that influences gene read counts is the sequencing depth, the gene will get more or less reads depending on how much the samples were sequenced. For this reason, we need to do normalize the data for sequencing depth.
+
+In DESeq2, with estimateSizeFactors function that uses the median ratio method.Ssize factor for each sample would be calculated and it corresponds to the multiplication factor which could be used to normalize the counts for sample sequencing depth.
+```{r size factor calculation}
+dds <- estimateSizeFactors(dds)
+sizeFactors(dds)
+```
+
+The size factors are calculated! For the normalization, we will see the read count distribution before normalization and after normalization on DESeq2. Let’s have a look.
+```{r before normalization}
+boxplot(log2(1 + counts(dds, normalized = FALSE) ), las=3, cex.axis=0.8, ylab="log2(1+counts)", main="Before normalization")
+```
+
+```{r after normalization}
+boxplot(log2(1 + counts(dds, normalized = TRUE) ), las=3, cex.axis=0.8, ylab="log2(1+counts)", main="After normalization")
+```
+
+DESeq2 performs an internal normalization where geometric mean is calculated for each gene across all samples. The counts for a gene in each sample is then divided by this mean. The median of these ratios in a sample is the size factor for that sample. This procedure corrects for library size and RNA composition bias, which can arise for example when only a small number of genes are very highly expressed in one experiment condition but not in the other. 
+
+##Data transformation
+
+Transformations are also important for variance stabilization. When we want to compare samples or perform statistical test, we need to make sure that the signal is not dominated by a certain class of genes, for instance, the peaks whose peak intensity is too high or too low. Indeed, for highly expressed genes, a few percent of variation in expression will translate into large differences in absolute number of reads.
+
+In our case, the regularized log transformation of the gene counts for all samples is performed using the rlog function on the DESeq2 Data Set object.
+
+```{r reg-log transformation}
+rld <- rlog(dds)
+```
+
+#Quality accessment
+
+##Expression values on replicates
+
+As a first step of quality accessment, we could compare the the counts for two biological replicates to see the impact of the transformations. Here, what we could expect is that the correlation between two replicates will strong positive and linear correlation.
+```{r replicate - Adult}
+par(mfrow=c(2,2))
+plot( counts(dds, normalized = TRUE)[,1:2], pch=16, cex=0.5, main = "No transformation-Control")
+abline(0, 1, lty=4, col="red")
+plot( counts(dds, normalized = TRUE)[,3:4], pch=16, cex=0.5, main = "No transformation-Exp")
+abline(0, 1, lty=4, col="red")
+
+plot( assay(rld)[,1:2], pch=16, cex=0.5, main="Reg-log-Control", xlim=c(0,20), ylim=c(0,20))
+abline(0, 1, lty=4, col="red")
+plot( assay(rld)[,3:4], pch=16, cex=0.5, main="Reg-log-Exp", xlim=c(0,20), ylim=c(0,20))
+abline(0, 1, lty=4, col="red")
+```
+
+The plot from control is ideal form of correlation. Between two expreiment replicates, they have some noise but still it seems fine. 
+
+##Clustering and Principal Component Analysis
+
+###Clustering based on the euclidean distance
+
+We will show two classical approaches to sample comparison. - Clustering based on euclidean distances between samples - Principal Component Analysis
+
+First one is **Euclidean distance** between samples. The Euclidean distance is straight-line distance between two points in an Euclidean space. It could be simply understood, just distance between the two point! Similarly, we can calculate distances for all possible pairs of samples. However, we will use the multi-dimentional space with as many dimensions as the number of genes we want to take into account for that calculation.
+
+In the present case, we will simply use all genes for which we have counts. We’ll make sure to use normalized and rlog transformed data so that the distance doesn’t simply reflect sequencing depth and is not dominated by a subset of genes.
+```{r euclidean distance}
+sampleDists <- dist( t( assay(rld) ) )
+```
+
+Then we will generate heatmaps for this euclidean distance between samples to visualize the distance, how much samples are far or near. For heatmap, **normalized regularized-log-transformed** data was used.
+```{r plotting cluster}
+sampleDistMatrix <- as.matrix( sampleDists ) 
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255) 
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows=sampleDists,
+         clustering_distance_cols=sampleDists,
+         col=colors,
+         annotation_col =colData)
+```
+
+###Correlation plot
+
+Also, we could check the correlation between replicates by calculating **Pearson correlation coefficient**. They could be reported as heatmap with clustering, as similar way of previous plot.
+```{r correlation plot}
+# calculate correlation between pairs of samples for all possible pairs.
+sampleCor <- cor(assay(rld))
+# generate heatmap
+pheatmap(
+  as.matrix(sampleCor),
+  annotation_col =as.data.frame(colData(rld)[,c(1,2)]),
+  main = "Correlation clustering",
+  width = 12,
+  height = 10
+)
+```
+
+# Conclusion
+
+Although two experiment replicates have noise, but it is not so significant to remove one out or not. Also, those trend is well-reflected. Also, the control showed really ideal pattern, so it would be okay to use this data for further analysis.
+
+```{r}
+save.image("QA_no_batch.RData")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
