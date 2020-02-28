@@ -1,0 +1,390 @@
+---
+title: "10. Differential Expressed Gene analysis"
+subtitle: "DEG analysis with DESeq2"
+author: "Yura SONG"
+output: html_notebook
+---
+
+# Introduction
+
+On previous chapter, we tried two different types of quality assessment of sequencing data. Here, with the datasets passed quality control, we will try differential expressed (DE) genes analysis. The dataset is from (previous quality assessment, including batch effect)[https://github.com/yurasong/R-coursework/tree/master/09.%20Quality%20assessment%20of%20sequencing%20data/Including%20batch%20effect].
+
+# Preparation
+
+Before starting the analysis on the RNA-seq data, the first thing to do is attaching libraries which we need further.
+```{r attach library}
+library(DESeq2)
+library(pheatmap)
+library(RColorBrewer)
+```
+
+For starting analysis, we will import raw-count data. Raw-count table includes the counts of reads in each transcript, counted by HTseq-count. 
+```{r import raw count}
+count <- read.delim("data/rawcount.csv", h=T, sep=",")
+head(count)
+```
+
+However, from the previous quality assessment, we decided to exclude D13B2 and D13A3. Therefore, we will select the columns except those two samples.
+```{r}
+count <- count[,c(1:2, 4, 6:ncol(count))]
+head(count)
+```
+
+#DESeq2 object
+
+To build a DESeq Data Set object, we need to provide 3 elements: 
+
+  - A matrix of raw read counts for all genes in all samples, countData in our case. 
+  - A dataframe providing information about all samples, colData in our case. 
+  - A design, which we would like to compare each other. It’s simply the condition of sample. We use condition because it corresponds to the column name in colData.
+  
+## Matrix of raw counts
+
+The first element for DESeq analysis is count matrix, including raw-count of gene expression.
+```{r}
+countData <- count[,2:ncol(count)]
+rownames(countData) <- count[,1]
+```
+
+## Sample information
+
+For sample information, the condition of sample, precise name of samples, and batch effect are required. For batch information, *rep()* could be used, rather than putting same information for several times.
+```{r making colData}
+colData <- data.frame(condition=c("D13A", "D13A", "D13B", "D13B", "AdultA", "AdultA", "AdultB", "AdultB"),
+                      precise=c("D13_A1", "D13_A3", "D13_B2","D13_B3","Adult_D1", "Adult_D2","Adult_B1","Adult_B2"),
+                      batch=c("1", "2", "1", "2", rep("1", 4)))
+rownames(colData) <- colnames(countData)
+head(colData)
+```
+
+## Build DESeq object
+
+To build a DESeq Data Set object, we need to provide 3 elements: 1. A matrix of raw read counts for all genes in all samples, countData in our case. 2. A dataframe providing information about all samples, colData in our case. 3. A design, which we would like to compare each other. It’s simply the condition of sample. We use condition because it corresponds to the column name in colData.
+
+We will build DESeq2 object, for calculating the size factor. Also, not like previously, **both batch and condition** should be considered.
+
+```{r DESeq2 object}
+dds <- DESeqDataSetFromMatrix(countData, colData, design = ~batch + condition)
+```
+
+While the pre-filteration of low count before running DESeq2 is not mandatory, there are two reasons which make pre-filtering useful: by removing rows in which there are very few reads, we reduce the memory size of the dds data object, and we increase the speed of the transformation and testing functions within DESeq2. Here we perform a minimal pre-filtering to keep only rows that have at least 10 reads total. Note that more strict filtering to increase power is automatically applied via independent filtering on the mean of normalized counts within the results function.
+```{r filtration}
+keep <- rowSums(counts(dds)) > 10
+dds <- dds[keep,]
+```
+
+#Normalization
+
+We will do data normalization as a first step of data normalization. The first parameter that influences gene read counts is the sequencing depth, the gene will get more or less reads depending on how much the samples were sequenced. For this reason, we need to do normalize the data for sequencing depth.
+
+In DESeq2, with estimateSizeFactors function that uses the median ratio method.Ssize factor for each sample would be calculated and it corresponds to the multiplication factor which could be used to normalize the counts for sample sequencing depth. 
+
+Here, the size factor could be different from previous quality assessment, since two suspected outliers are not included. 
+```{r size factor calculation}
+dds <- estimateSizeFactors(dds)
+sizeFactors(dds)
+```
+
+The size factors are calculated! For the normalization, we will see the read count distribution before normalization and after normalization on DESeq2. Let’s have a look.
+```{r before normalization}
+boxplot(log2(1 + counts(dds, normalized = FALSE) ), las=3, cex.axis=0.8, ylab="log2(1+counts)", main="Before normalization")
+```
+
+```{r after normalization}
+boxplot(log2(1 + counts(dds, normalized = TRUE) ), las=3, cex.axis=0.8, ylab="log2(1+counts)", main="After normalization")
+```
+
+##Data transformation
+
+Transformations are also important for variance stabilization. When we want to compare samples or perform statistical test, we need to make sure that the signal is not dominated by a certain class of genes, for instance, the peaks whose peak intensity is too high or too low. Indeed, for highly expressed genes, a few percent of variation in expression will translate into large differences in absolute number of reads.
+
+In our case, the regularized log transformation of the gene counts for all samples is performed using the rlog function on the DESeq2 Data Set object.
+
+```{r reg-log transformation}
+rld <- rlog(dds)
+```
+
+#Quality accessment
+
+After removing outliers, we should re-check the status of samples, such as clustering. Here, we will briefly check the unsupervised clustering and PCA plot to check whether the suspected outliers really matters on the data.
+
+## Unsupervised clustering
+
+Not like previously, on this step, we will do unsupervised clustering with *hclust()* function.
+```{r}
+hs <- hclust(dist(t(assay(rld))))
+plot(hs)
+```
+
+###PCA plot
+Next one is **Principal Component Analysis**, as known as PCA. Principal Component Analysis is a classical dimensionality reduction method. The point is to reduce the number of dimensions to something manageable while loosing a minimal amount of information.
+
+For visualization, the other packages need to be attached.
+```{r attach additional libraries}
+library(factoextra)
+library(ggfortify)
+library(ggrepel)
+```
+
+Since the data is already transformed, the scaling is not required. Let’s check how many dimensions are explaining the variances.
+```{r dimention for variances}
+pca <- prcomp(t(assay(rld)), center=TRUE, scale.=FALSE)
+fviz_eig(pca)
+```
+
+So there are total 10 explained variances and mostly are explained by PC1 and PC2. To reduce the dimensions which explains the variance, let’s check the data by PCA plot.
+```{r pca plot}
+plotPCA(rld, intgroup="condition") + geom_text_repel(aes(label = colData(rld)$precise))
+```
+
+```{r pca plot batch}
+plotPCA(rld, intgroup="batch") + geom_text_repel(aes(label = colData(rld)$precise))
+```
+
+Well, it looks like it still has the batch effect. Then what if we take out the batch effect from the data?
+
+##Batch effect removed
+```{r batch effect correction}
+vsd <- vst(dds, blind=FALSE)
+
+mat <- assay(vsd)
+mat <- limma::removeBatchEffect(mat, vsd$batch)
+assay(vsd) <- mat
+plotPCA(vsd) + geom_text_repel(aes(label = colData(rld)$precise)) + ggtitle("Sample PCA, regularized-log-transformed normalized data")
+```
+
+### Quality accessment after batch effect correction
+
+On the PCA plot, it seems that the batch effect correction works, although not perfectly. Since the PCA plot is one of the method to see the variances by dimention reduction, we need to check the correlation and clustering as we did before batch effect correction.
+
+```{r}
+hst <- hclust(dist(t(assay(rld))))
+plot(hst)
+```
+
+Well, more or less better. Still D13_B2 is a lot suspicious, but we will use this dataset since the clustering looks okay. However, if you have this kind of clustering, I highly recommend to check the sample characteristics. Depend on the cell origin or differentiation, the samples on developmental stage could make more clustered to another. 
+
+# DE analysis
+
+Since we already have datasets for DEseq analysis, we do not have to build the new objects. We will use the built data objects, **dds** for DE analysis.
+```{r}
+dds <- DESeq(dds)
+```
+
+To check whether the dispersion level is higher or not, to plot the **estimated dispersion**.
+```{r}
+plotDispEsts(dds, main="Dispersion Estimation")
+```
+
+Following the dispersion estimation plot, it seems that the fitting works quite well. The more finals are around fitted, it could be considered as good fitting. If the final area is too large, it means that the dispersion is too high between the samples and the model would not be appropriate for further analysis.
+
+So, we will extract DE results. For this, *result()* function will be used. With *results* function, a result table from a DESeq analysis will be generated. Not only the fold change, all the statistic values are included. By adjusting **alpha** value, we could control stringency of result. On this example, we will start with p = 0.1, not 0.05.
+```{r}
+D13A_vs_D13B <- results(dds, contrast=c("condition", "D13A", "D13B"), alpha=0.1)
+AdultA_vs_AdultB <- results(dds, contrast=c("condition", "AdultA", "AdultB"), alpha=0.1)
+D13B_vs_AdultA <- results(dds, contrast=c("condition", "D13B", "AdultA"), alpha=0.1)
+D13B_vs_AdultB <- results(dds, contrast=c("condition", "D13B", "AdultB"), alpha=0.1)
+D13A_vs_AdultA <- results(dds, contrast=c("condition", "D13A", "AdultA"), alpha=0.1)
+D13A_vs_AdultB <- results(dds, contrast=c("condition", "D13A", "AdultB"), alpha=0.1)
+```
+
+## Shrinkage and Diagnosis
+
+Before checking the DE genes, **Shrinkage** step will be added. In short, it looks at the largest fold changes that are not due to low counts and uses these to inform a prior distribution. So the large fold changes from genes with lots of statistical information are not shrunk, while the imprecise fold changes are shrunk. This allows you to compare all estimated LFC across experiments, for example, which is not really feasible without the use of a prior.
+
+With *summary* function, we could get the summary of DE analysis.
+```{r}
+D13A_vs_D13B_sh <- lfcShrink(dds, contrast=c("condition", "D13A", "D13B"), alpha=0.1)
+summary(D13A_vs_D13B_sh)
+```
+
+Also, the result of DE could be plotted as MA plot and volcano plots. Those two plots are well-known as diagnostic plot for DE analysis.
+```{r}
+par(mfrow=c(1,2))
+plotMA(D13A_vs_D13B_sh, ylim=c(-2,2), main="D13A vs D13B")
+plot(
+    x = D13A_vs_D13B_sh$log2FoldChange,
+    y = -log10(D13A_vs_D13B_sh$padj),
+    col = ifelse(D13A_vs_D13B_sh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change D13A vs D13B", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+When we compare D13A to D13B, it has almost no genes differntially expressed. In this kind of case, there will be two possibilities. One is that the samples have almost same characteristic although the origin is different. Another is that  the DESeq did not work well. 
+
+In this dataset, actually there were no differences between A and B from D13. That was why it showed this pattern.
+
+```{r}
+AdultA_vs_AdultB_sh <- lfcShrink(dds, contrast=c("condition", "AdultA", "AdultB"), alpha=0.1)
+summary(AdultA_vs_AdultB_sh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(AdultA_vs_AdultB_sh, ylim=c(-2,2), main="AdultA vs AdultB")
+plot(
+    x = AdultA_vs_AdultB_sh$log2FoldChange,
+    y = -log10(AdultA_vs_AdultB_sh$padj),
+    col = ifelse(AdultA_vs_AdultB_sh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change AdultA vs AdultB", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+```{r}
+D13B_vs_AdultA_sh <- lfcShrink(dds, contrast=c("condition", "D13B", "AdultA"), alpha=0.1)
+summary(D13B_vs_AdultA_sh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(D13B_vs_AdultA_sh, ylim=c(-2,2), main="D13B vs AdultA")
+plot(
+    x = D13B_vs_AdultA_sh$log2FoldChange,
+    y = -log10(D13B_vs_AdultA_sh$padj),
+    col = ifelse(D13B_vs_AdultA_sh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change D13B vs AdultA", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+Okay, this is completely different pattern compared to the sets comparing the same developmental stage. It means that the set of genes are up or down-regulated in D13B compared to AdultA. 
+
+```{r}
+D13B_vs_AdultB_sh <- lfcShrink(dds, contrast=c("condition", "D13B", "AdultB"), alpha=0.1)
+summary(D13B_vs_AdultB_sh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(D13B_vs_AdultB_sh, ylim=c(-2,2), main="D13B vs AdultB")
+plot(
+    x = D13B_vs_AdultB_sh$log2FoldChange,
+    y = -log10(D13B_vs_AdultB_sh$padj),
+    col = ifelse(D13B_vs_AdultB_sh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change D13B vs AdultB", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+```{r}
+D13A_vs_AdultA_sh <- lfcShrink(dds, contrast=c("condition", "D13A", "AdultA"), alpha=0.1)
+summary(D13A_vs_AdultA_sh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(D13A_vs_AdultA_sh, ylim=c(-2,2), main="D13A vs AdultA")
+plot(
+    x = D13A_vs_AdultA_sh$log2FoldChange,
+    y = -log10(D13A_vs_AdultA_sh$padj),
+    col = ifelse(D13A_vs_AdultA_sh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change D13A vs AdultA", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+```{r}
+D13A_vs_AdultB_sh <- lfcShrink(dds, contrast=c("condition", "D13A", "AdultB"), alpha=0.1)
+summary(D13A_vs_AdultB_sh)
+```
+
+```{r}
+par(mfrow=c(1,2))
+plotMA(D13A_vs_AdultB_sh, ylim=c(-2,2), main="D13A vs AdultB")
+plot(
+    x = D13A_vs_AdultB_sh$log2FoldChange,
+    y = -log10(D13A_vs_AdultB_sh$padj),
+    col = ifelse(D13A_vs_AdultB_sh$padj<0.1 , "red", "grey30"),
+    pch = 20, cex = 0.5, 
+    xlab = "log2 Fold Change D13A vs AdultB", 
+    ylab = "log10(adjusted Pvalue)",
+    main="adjusted p-value < 0.1"
+    )
+```
+
+Here, what we also should check is the **mean count** on summary. If more than 50% of genes were counted as mean count, it may mean that the one dataset has a lot high counts compared to the others, it is not enough to be corrected with applying size factors. In this case, the **downsampling** is highly recommended.
+
+# Export data
+
+The data will be exported as .csv format, including all the statistics and fold changes calculated by DESeq2. Before exporting the data, it would be better to exclude NA values on p-value and adjusted p-value.
+
+Before exporting all data, we will make a directory to save the DE results, called Results. 
+```{r}
+res_dir <- file.path("Results") # Giving path of directory
+dir.create(res_dir) # Creating directory
+```
+
+```{r}
+D13A_vs_D13B_sh <- D13A_vs_D13B_sh[ !is.na(D13A_vs_D13B_sh$padj), ]
+D13A_vs_D13B_sh <- D13A_vs_D13B_sh[ !is.na(D13A_vs_D13B_sh$pvalue), ]
+write.table(data.frame(D13A_vs_D13B_sh), "Results/DESeq2_D13A_vs_D13B.csv", quote=F, sep="\t", row.names=T, col.names=T)
+```
+
+```{r}
+D13A_vs_AdultA_sh <- D13A_vs_AdultA_sh[ !is.na(D13A_vs_AdultA_sh$padj), ]
+D13A_vs_AdultA_sh <- D13A_vs_AdultA_sh[ !is.na(D13A_vs_AdultA_sh$pvalue), ]
+write.table(data.frame(D13A_vs_AdultA_sh), "Results/DESeq2_D13A_vs_AdultA.csv", quote=F, sep="\t", row.names=T, col.names=T)
+```
+
+```{r}
+D13A_vs_AdultB_sh <- D13A_vs_AdultB_sh[ !is.na(D13A_vs_AdultB_sh$padj), ]
+D13A_vs_AdultB_sh <- D13A_vs_AdultB_sh[ !is.na(D13A_vs_AdultB_sh$pvalue), ]
+write.table(data.frame(D13A_vs_AdultB_sh), "Results/DESeq2_D13A_vs_AdultB.csv", quote=F, sep="\t", row.names=T, col.names=T)
+```
+
+```{r}
+D13B_vs_AdultA_sh <- D13B_vs_AdultA_sh[ !is.na(D13B_vs_AdultA_sh$padj), ]
+D13B_vs_AdultA_sh <- D13B_vs_AdultA_sh[ !is.na(D13B_vs_AdultA_sh$pvalue), ]
+write.table(data.frame(D13B_vs_AdultA_sh), "Results/DESeq2_D13B_vs_AdultA.csv", quote=F, sep="\t", row.names=T, col.names=T)
+```
+
+```{r}
+D13B_vs_AdultB_sh <- D13B_vs_AdultB_sh[ !is.na(D13B_vs_AdultB_sh$padj), ]
+D13B_vs_AdultB_sh <- D13B_vs_AdultB_sh[ !is.na(D13B_vs_AdultB_sh$pvalue), ]
+write.table(data.frame(D13B_vs_AdultB_sh), "Results/DESeq2_D13B_vs_AdultB.csv", quote=F, sep="\t", row.names=T, col.names=T)
+```
+
+```{r}
+AdultA_vs_AdultB_sh <- AdultA_vs_AdultB_sh[ !is.na(AdultA_vs_AdultB_sh$padj), ]
+AdultA_vs_AdultB_sh <- AdultA_vs_AdultB_sh[ !is.na(AdultA_vs_AdultB_sh$pvalue), ]
+write.table(data.frame(AdultA_vs_AdultB_sh), "Results/DESeq2_AdultA_vs_AdultB.csv", quote=F, sep="\t", row.names=T, col.names=T)
+```
+
+#Save work image
+
+```{r}
+save.image("DEG.RData")
+savehistory("DEG.Rhistory")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
