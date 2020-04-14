@@ -1,0 +1,16 @@
+cytoband	18q23	2q37.3	
+q value	0.00013088	0.0011899	
+residual q value	0.00013088	0.0011899	
+wide peak boundaries	chr18:74975001-78077248	chr2:242755001-243199373	
+genes in wide peak	NFATC1	PDCD1	
+	CTDP1	CXXC11	
+	TXNL4A	LOC728323	
+	ADNP2		
+	KCNG2		
+	SALL3		
+	RBFA		
+	PQLC1		
+	PARD6G		
+	ATP9B		
+	HSBP1L1		
+	LOC100130522		

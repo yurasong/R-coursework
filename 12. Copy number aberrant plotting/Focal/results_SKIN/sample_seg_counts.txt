@@ -1,0 +1,10 @@
+sample	segment_count	included
+S14P1	32	yes
+S142P1	39	yes
+S142P2C	39	yes
+S159P2	37	yes
+SCS6P2N	37	yes
+SCS18P5	41	yes
+SL14P0	31	yes
+SL14P1	35	yes
+SL14Skin	31	yes

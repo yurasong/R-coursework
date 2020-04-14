@@ -1,0 +1,461 @@
+---
+title: "11. Micro Array data analysis"
+author: Yura SONG
+output: html_notebook
+---
+
+# Introduction
+This notebook describes the data analysis for the Microarray (MA) experiments from. All steps, from loading the original raw data until the differential expression (DE) analysis, are described and can be used as a reference for future MA analyses.
+
+The rough outline of this analysis is based on the [VIB tutorial](https://wiki.bits.vib.be/index.php/Analyze_your_own_microarray_data_in_R/Bioconductor#) on MA analysis in R.
+
+The necessary libraries are loaded below. The first set are base R packages and can be installed with `install.packages("packagename")`:
+
+```{r  R packages}
+library(FactoMineR)
+library(factoextra)
+library(ggplot2)
+library(ggfortify)
+library(ggrepel)
+library(RColorBrewer)
+library(gplots)
+library(cowplot)
+```
+
+The remaining packages are from [Bioconductor](https://bioconductor.org/) and can be installed with the commands:
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("htmg430pmcdf")
+
+```{r Bioconductor packages}
+library(affy)
+library(htmg430pmcdf)
+library(simpleaffy)
+library(affyQCReport)
+library(limma)
+library(annotate)
+```
+
+# Data preprocessing
+
+## Getting the raw data
+
+### Load the data
+The data from the *AffyMetrix* MA experiments are contained within *.cel* files, these can be loaded into R with the `affy` package. To access them, you should give the path to the folder on your computer where the files are stored (either an absolute path or relative to your R working directory). It is advisable to store the *.cel* files in a separate folder. The data can then be loaded using the `ReadAffy()` method. Useful information about the experiment (like sample names, batches, experimental conditions,...) should be stored in a *.txt* file (in the example below *sample_info.txt*) and can be loaded with the `phenoData` argument.  Finally, information about the *cdf* (chip description file) can also be given.
+
+Also, the dataset is composed of three different samples. One is control and two others are called A and B each, that is the mark of treatment. For A, we had a four days of treatment and B has only one day due to the lethality. We will compare the effect of A and B compared to control.
+
+```{r Load cel files}
+celpath <- "Data/celfiles/"
+
+data <- ReadAffy(celfile.path = celpath, 
+                 phenoData = "Data/sample_info.txt", 
+                 cdfname = "HT_MG-430_PM")
+
+ph = data@phenoData       # sample annotations
+ph@data$Sample <- c('ctrlD2.1', 'ctrlD2.2', 'ctrlD2.3',
+                    'AD4.2','AD4.5', 'AD4.6',
+                    'BD1.7', 'BD1.8')
+
+n_samples = length(data)  # number of samples
+
+print(ph@data)
+```
+
+Additionally, I stored the experiment information (stored in `data@phenoData`) in a separate object and added a new column containing the sample names and printed out the experiment information for inspection. The number of samples was also stored in a separate variable and printed out.
+
+The gene annotations are stored in a separate *.csv* file (*note*: for other arrays, the annotation data can be loaded from designated Bioconductor packages). The required information can be extracted from the file after reading it in R. This could be downloaded [here](https://www.dropbox.com/sh/6a2kgbt9332zzfl/AACOyF2LxddNvKuI1j-ooQBKa?dl=0).
+
+```{r Gene annotations}
+annotations = read.delim("Data/HT_MG-430_PM.na35.annot.csv", h=T, skip=22, sep=",")
+gene_info <- data.frame(cbind(as.character(annotations$Probe.Set.ID),
+                              as.character(annotations$Gene.Symbol),
+                              as.character(annotations$Gene.Title)))
+colnames(gene_info)=c("ProbeID", "Symbol", "Description")   # set column names
+gene_info$ProbeID <- as.character(gene_info$ProbeID)        # convert columns to character type
+gene_info$Symbol <- as.character(gene_info$Symbol)
+gene_info$Description <- as.character(gene_info$Description)
+row.names(gene_info) <- gene_info$ProbeID                   # set Probe IDs as row names
+```
+R generally converts columns containing alphabetic characters to *factors*. As we don't want that in this case, the columns are set to *character* types manually.
+
+
+## Quality control and data normalization
+
+There are a bunch of methods that can be used to check the quality of the MA data (see [VIB tutorial](https://wiki.bits.vib.be/index.php/Analyze_your_own_microarray_data_in_R/Bioconductor#) for more info). Here, we will just look at the *log-intensity* distribution to visualize the effect of data normalization.
+
+The histograms are created with `ggplot`. In order to do this, the data needs to be reformated first into a data frame with *log intensities* in the first column and sample names in the second. For these plots, we only use the data from perfectly matched (PM) probes.
+
+```{r log intenisty distribution before normalization}
+
+# reformat data
+pmexp = pm(data)   # use only PM data
+
+sampleNames = vector()
+logs = vector()
+
+for (i in 1:n_samples){
+  sampleNames = c(sampleNames, rep(ph@data$Sample[i], dim(pmexp)[1]))
+  logs = c(logs, log2(pmexp[, i]))
+}
+
+logData = data.frame(logInt=logs, sampleName=sampleNames)
+
+# plot with ggplot
+dataHist2 = ggplot(logData, aes(logInt, colour = sampleName))
+logInt_hist = dataHist2 + geom_density() + ggtitle("PM Intensity histogram before normalization")
+logInt_hist
+```
+
+As we can see, the histograms are not entirely similar and the plot looks a bit messy. To be able to compare the experiments from different arrays, the intensity distributions should have similar shapes and centers.
+
+To normalize the data, the *Robust Multi-array Average expression (RMA)* method from the `affy` package is used. This method **normalizes** the raw data and also includes **background** correction, the data is returned as an `ExpressionSet` object containing *log2* expression data. The expression data can be retrieved with the `exprs()` method.
+
+```{r Data normalization}
+data.rma = rma(data)
+data.matrix = exprs(data.rma)           # create data matrix with expression values
+colnames(data.matrix) <- ph@data$Sample # assign proper column names
+```
+
+The first few lines of the normalized expression data are shown below. The rows correspond to the MA probes, the columns are the different samples.
+
+```{r}
+head(data.matrix)
+```
+
+Next, we can make the same *log-intensity* histograms as before, but this time with the normalized data.
+
+```{r log intenisty distribution after normalization}
+norm_sampleNames = vector()
+normLogs = vector()
+
+for (i in 1:n_samples){
+  norm_sampleNames = c(norm_sampleNames, rep(ph@data$Sample[i], dim(data.matrix)[1]))
+  normLogs = c(normLogs, data.matrix[, i])
+}
+
+normData = data.frame(norm_logInt=normLogs, sampleName=norm_sampleNames)
+
+norm_dataHist2 = ggplot(normData, aes(norm_logInt, colour = sampleName))
+norm_logInt_hist = norm_dataHist2 + geom_density() + ggtitle("PM Intensity histogram after normalization")
+norm_logInt_hist
+```
+
+
+## Batch effect removal
+
+For some analyses (like PCA), it is necessary to remove any batch effects from the data. However, it is **not advisable** to use the batch effect-removed data for any statistical analyses! Batch effect removal should only be used in specific cases and **caution** should always be taken, as it can mess up your data (by removing group effects which might be biologically significant). Check out the following [paper](https://academic.oup.com/biostatistics/article/17/1/29/1744261) for more information.
+
+To remove the batch effect we will use the `removeBatchEffect()` method from the `limma` package. A design matrix should be provided that contains information about the different experimental groups or conditions and the batches that each sample belongs to. For this, we can extract the necessary information from the *phenoData* (stored in `ph@data`), convert them to *factors* and then use the `model.matrix()` method to create the design. The normalized data matrix and design matrix are then given as input to the `removeBatchEffect()` method.
+
+```{r Batch effect removal}
+# define variables of experiments (combination of "type": ctrl, exp or tpa and "day": 1 or 4) as factors
+# same for batch information
+conditions <- as.factor(paste(ph@data$Type, ph@data$Day, sep="."))
+batches <- as.factor(ph@data$Batch)
+
+# create design matrix using model.matrix() method and the factors defined above
+batch_removal_design = model.matrix(~ 0 + conditions)
+colnames(batch_removal_design) <- levels(conditions)
+
+# remove batch effect with limma method
+batch_removed_data <- removeBatchEffect(data.matrix, batch=batches, design=batch_removal_design)
+```
+
+The `conditions`, `batches` and `batch_removal_design` matrix are printed out below as reference.
+
+```{r}
+print(conditions)
+print(batches)
+print(batch_removal_design)
+```
+
+# Exploratory Data Analysis
+
+## Principal Component Analysis and k-means clustering
+
+PCA is used to visualize the data in a lower-dimensional space. This allows to inspect the data for the presence of any batch effects. As an example, the PCA will be performed before batch removal as well as after to visualize the effects on the data. The data points can be colored by batch to allow easy detection of batch effects. In addition, *k-means clustering* is applied on the PCA results to check whether the different samples cluster together in a way that makes sense.
+
+To enable coloring of the datapoints by batch, a new dataframe is created that contains the batch information for each sample.
+
+```{r Batch information}
+batch_data <- data.frame(Batch = as.factor(ph@data$Batch), row.names = ph@data$Sample)
+print(batch_data)
+```
+
+
+### Before batch effect removal
+
+A PCA is calculated using the original (pre-batch removal) data and plotted with `autoplot`. **The data is first transposed** for the PCA, so that the MA probes are now contained in the columns and the samples in the rows. In other words, the gene expression levels are treated as variables for the sample observations. Thus the resulting PCA will show how the samples vary according to the expression of the genes. We would expect of course that similar experimental conditions cluster together.
+
+Then, *k-means* clustering is applied on the PCA result, whereby **all PCs** are taken into account for the clustering. The clustering is performed once with 2 clusters and once with 3.
+
+A summary of the PCA result is printed, showing all PCs and their (relative) importance.
+
+```{r pre-batch removal PCA + k-means clustering}
+# calculate PCs
+data.pca <- prcomp(t(data.matrix), scale. = TRUE)
+
+# perform k-means clustering with 2 and 3 clusters
+k2_preBatch = kmeans(data.pca$x, centers=2)
+k3_preBatch = kmeans(data.pca$x, centers=3)
+
+print(summary(data.pca))
+```
+
+The data is described by 8 PCs, of which the first 5 describe more than 85% of the variance. The last 3 can thus in principle be discarded as not significant.
+
+The PCA result for the pre-batch removal data is plotted below in three different ways, once colored by batch and then using the k-means clustering for 2 and 3 clusters respectively.
+
+```{r pre-batch removal PCA plots}
+# PCA colored by batch
+autoplot(data.pca, label=T, label.repel=T, label.size=3, 
+         data=batch_data, colour="Batch", main = "PCA before batch removal")
+
+# PCA with k=2 clustering
+autoplot(k2_preBatch, data=data.pca$x, label=T, label.repel=T, label.size=3, 
+         main = "Clustered PCA before batch removal, K = 2") +
+scale_colour_manual(values = brewer.pal(name="Dark2", n=3))
+
+# PCA with k=3 clustering
+autoplot(k3_preBatch, data=data.pca$x, label=T, label.repel=T, label.size=3, 
+         main = "Clustered PCA before batch removal, K = 3") +
+scale_colour_manual(values = brewer.pal(name="Dark2", n=3))
+```
+
+
+### After batch effect removal
+
+We perform the same steps as above for the batch effect-removed data to visualize the effect of this process.
+
+```{r batch removal PCA + k-means clustering}
+# calculate PCs
+batch_removed.pca <- prcomp(t(batch_removed_data), scale. = TRUE)
+
+# perform k-means clustering with 2 and 3 clusters
+k2_batch_removed = kmeans(batch_removed.pca$x, centers=2)
+k3_batch_removed = kmeans(batch_removed.pca$x, centers=3)
+
+print(summary(batch_removed.pca))
+```
+
+We again find 8 PCs but see that now the first 4 PCs already describe more than 85% of the variance.
+
+The PCA result for the batch effect-removed data is plotted below in three different ways, once colored by batch and then using the k-means clustering for 2 and 3 clusters respectively.
+
+```{r batch-removal PCA plots}
+# PCA colored by batch
+autoplot(batch_removed.pca, label=T, label.repel=T, label.size=3, 
+         data=batch_data, colour="Batch", main = "PCA after batch removal")
+
+# PCA with k=2 clustering
+autoplot(k2_batch_removed, data=batch_removed.pca$x, label=T, label.repel=T, label.size=3, 
+         main = "Clustered PCA after batch removal, K = 2") +
+scale_colour_manual(values = brewer.pal(name="Dark2", n=3))
+
+# PCA with k=3 clustering
+autoplot(k3_batch_removed, data=batch_removed.pca$x, label=T, label.repel=T, label.size=3, 
+         main = "Clustered PCA after batch removal, K = 3") +
+scale_colour_manual(values = brewer.pal(name="Dark2", n=3))
+```
+
+This PCA looks better than the pre-batch removal, because now the 2 batches are more mixed and, more importantly, we get a better clustering of the experimental conditions: the controls form a cluster of their own and the Exp.D4 and TPA cluster more closely together than with the Control. This as expected as we expect to find a lot of genes commonly up-regulated in the Exp.D4 and TPA samples.
+
+# Differentially expressed genes analysis
+
+The *limma* package is used to analyze differentially expressed genes in the MA data (see *limma* manual for reference). 
+
+## Identifying differentially expressed genes
+
+### ANOVA and t-tests with *limma*
+
+A design matrix needs to be created first to perform the linear fitting and ANOVA that will calculate the statistical significance of differential expression levels. This is similar to the design matrix that we created for the batch effect-removal. However, in this case, the **batch information** is included! This is because we will perform the statistical analysis on the **pre-batch removal** data, which is recommended to prevent missing any biologically significant differences that might have been removed by the batch effect-removal. By including the batch information in the design matrix, the statistical analysis is still able to retrieve biologically significant information and ignoring batch effects.
+
+```{r Fit design matrix}
+fit_design <- model.matrix(~ 0 + conditions + batches)
+colnames(fit_design) <- c("Ctrl.2", "A.2", "B.1", "Batch2", "Batch3")
+
+print(fit_design)
+```
+
+A linear model is now fitted for every probe between the different arrays, using the information from the design matrix.
+
+```{r Performing the linear fitting}
+data.fit <- lmFit(data.matrix, fit_design)
+```
+
+In this experiment, we are interested in the differences in gene expression between the AD2 and the B and Ctrl.D2 samples. In particalur, we are looking for genes that are up or down in AD2 but not in either B or Ctrl.D2 and for genes that are up or down in both the Ctrl.D2 and B samples. 
+
+We can now calculate these differences (or contrasts) between samples of interest by performing a **contrast fit**. We first make a **contrast matrix** containing the contrasts of interest and then use this as input for the *limma* `cont.fit()` method, which perfoms an ANOVA to calculate the statistical significance of differential expression. Finally, the `eBayes()` method is applied to the resulting fit, which calculates the moderated t-statistics, F-statistics, p-values and other statistical parameters of the differential expression.
+
+```{r Contrast fit}
+## Create contrasts matrix
+cont.matrix <- makeContrasts(A2_vs_Ctrl2 = A.2 - Ctrl.2,
+                             A2_vs_B = A.2 - B.1,
+                             B_vs_Ctrl2 = B.1 - Ctrl.2,
+                             levels = fit_design)
+
+## Make comparisons by doing contrast fit
+cont.fit <- contrasts.fit(data.fit, cont.matrix)
+
+## Apply eBayes
+cont.fit.eb <- eBayes(cont.fit)
+```
+
+### Visualizing significant DE genes with volcano plots
+
+We can now extract the top differentially expressed (DE) genes from each contrast with the `topTable()` function. The contrasts are characterized by their coefficients in the contrast matrix:
+  - AD2 vs Ctrl.D2: *coefficient 1*
+  - AD2 vs B: *coefficient 2*
+  - B vs Ctrl.D2: *coefficient 3*
+
+At this stage we will select all probes from the DE analysis by setting the *number* argument of the `topTable()` method to 100000, much higher than the total number of probes. We will then use these *topTables* to create *Volcano plots* that visualize the statistically significant differentially expressed probes for the various contrasts.
+
+```{r Extract DE genes}
+## create tables of ALL genes for each contrast
+## set "number" to 1000000 to make sure all genes are selected
+A2_vs_Ctrl2.table <- topTable(cont.fit.eb, coef=1, number=1000000)
+A2_vs_B.table <- topTable(cont.fit.eb, coef=2, number=1000000)
+B_vs_Ctrl2.table <- topTable(cont.fit.eb, coef=3, number=1000000)
+
+## Add gene names: Symbol column
+A2_vs_Ctrl2.table <- transform(merge(A2_vs_Ctrl2.table, gene_info[c("ProbeID", "Symbol")],
+                                    by.x='row.names', by.y="ProbeID", sort=F),
+                                    row.names=Row.names, Row.names=NULL)
+A2_vs_B.table <- transform(merge(A2_vs_B.table, gene_info[c("ProbeID", "Symbol")],
+                                    by.x='row.names', by.y="ProbeID", sort=F),
+                                    row.names=Row.names, Row.names=NULL)
+B_vs_Ctrl2.table <- transform(merge(B_vs_Ctrl2.table, gene_info[c("ProbeID", "Symbol")],
+                                    by.x='row.names', by.y="ProbeID", sort=F),
+                                    row.names=Row.names, Row.names=NULL)
+```
+
+The top table will display the probes with their statistical parameters for the given contrast, ordered by significance (default: B-score).
+
+For the volcano plots, a custom function is created that allows to annotate the DE genes with custom parameters (default: |logFC| > 1 and p-value < 0.05).
+
+```{r topTables and Volcano plots}
+## Create volcano plots with ggplot
+
+volc_plot <- function(top_table, logFC_tresh = 1, p_tresh = 0.05) {
+  # make volcanoplot for a top_table
+  name <- deparse(substitute(top_table))
+
+  ### Highlight genes that have absolute fold change and p-value above or under their thresholds
+  top_table$threshold <- as.factor(abs(top_table$logFC) > logFC_tresh & top_table$P.Val < p_tresh)
+
+  ### get the title for the volcanoplot from the table name
+  name <- sub(".table", "", name)
+  titl <- paste(gsub("_", " ", name),
+                paste("|logFC| >", logFC_tresh, sep=" "),
+                paste("p-value <", p_tresh, sep=" "),
+                sep=", ")
+
+  ### make volcanoplot
+  vlc_plt = ggplot(data=top_table, aes(x=logFC, y=-log10(P.Value), colour=threshold)) +
+            geom_point(alpha=0.4, size=1.75) +
+            ggtitle(titl) +
+            theme(legend.position = "none") +
+            scale_x_continuous(limits = c(-8, 8), breaks = c(-5, -2, 0, 2, 5)) +
+            ylim(c(0, 7)) +
+            xlab("log2 fold change") + ylab("-log10 p-value")
+  vlc_plt
+}
+```
+
+```{r Plot volcanoplots, fig.height=8, fig.width=12}
+
+A2_vs_Ctrl2.table.vlc_plt <- volc_plot(A2_vs_Ctrl2.table, logFC_tresh = 1, p_tresh = 0.05)
+A2_vs_B.table.vlc_plt <- volc_plot(A2_vs_B.table, logFC_tresh = 1, p_tresh = 0.05)
+B_vs_Ctrl2.table.vlc_plt <- volc_plot(B_vs_Ctrl2.table, logFC_tresh = 1, p_tresh = 0.05)
+
+plot_grid(A2_vs_Ctrl2.table.vlc_plt, A2_vs_B.table.vlc_plt, B_vs_Ctrl2.table.vlc_plt, nrow=3)
+```
+
+
+### Extracting top DE genes
+
+We will now extract only the top DE genes, using the same thresholds that were used to annotate the volcanoplots (i.e. *|logFC| > 1* and *p-value < 0.05*). In addition, a threshold for the *Average Expression* is created, so only genes are selected that had a significant signal on the MicroArray.
+
+The number of significant DE genes from each contrast is printed out.
+
+```{r select top DE genes}
+logFC_thresh = 1
+p_thresh = 0.05
+AveExpr_thresh = 6
+
+A2_vs_Ctrl2.topgenes <- A2_vs_Ctrl2.table[which(A2_vs_Ctrl2.table$P.Value < p_thresh &
+                                                    abs(A2_vs_Ctrl2.table$logFC) > logFC_thresh &
+                                                    A2_vs_Ctrl2.table$AveExpr > AveExpr_thresh),]
+A2_vs_B.topgenes <- A2_vs_B.table[which(A2_vs_B.table$P.Value < p_thresh &
+                                                abs(A2_vs_B.table$logFC) > logFC_thresh &
+                                                A2_vs_B.table$AveExpr > AveExpr_thresh),]
+B_vs_Ctrl2.topgenes <- B_vs_Ctrl2.table[which(B_vs_Ctrl2.table$P.Value < p_thresh &
+                                                  abs(B_vs_Ctrl2.table$logFC) > logFC_thresh &
+                                                  B_vs_Ctrl2.table$AveExpr > AveExpr_thresh),]
+
+
+## Number of genes that are DE, according to the tresholds abs(logFC) > 1, p-value < 0.05
+print("Number of genes that are DE, according to the tresholds abs(logFC) > 1, p-value < 0.05")
+print("A2 vs Ctrl2")
+print(nrow(A2_vs_Ctrl2.topgenes))
+print("A2 vs B")
+print(nrow(A2_vs_B.topgenes))
+print("B vs Ctrl2")
+print(nrow(B_vs_Ctrl2.topgenes))
+```
+
+The top DE genes are further separated in **UP-** and **DOWN-regulated** genes. All tables are then exported as *csv*'s for storage.
+
+```{r top UP and DOWN genes}
+A2_vs_Ctrl2.topups <- A2_vs_Ctrl2.topgenes[which(A2_vs_Ctrl2.topgenes$logFC > 1),]
+A2_vs_Ctrl2.topdowns <- A2_vs_Ctrl2.topgenes[which(A2_vs_Ctrl2.topgenes$logFC < -1),]
+A2_vs_B.topups <- A2_vs_B.topgenes[which(A2_vs_B.topgenes$logFC > 1),]
+A2_vs_B.topdowns <- A2_vs_B.topgenes[which(A2_vs_B.topgenes$logFC < -1),]
+B_vs_Ctrl2.topups <- B_vs_Ctrl2.topgenes[which(B_vs_Ctrl2.topgenes$logFC > 1),]
+B_vs_Ctrl2.topdowns <- B_vs_Ctrl2.topgenes[which(B_vs_Ctrl2.topgenes$logFC < -1),]
+```
+
+```{r}
+## Export topgene tables as csv files
+write.csv(A2_vs_Ctrl2.topgenes, "Results/A2_vs_Ctrl2-topgenes.csv")
+write.csv(A2_vs_Ctrl2.topups, "Results/A2_vs_Ctrl2-topups.csv")
+write.csv(A2_vs_Ctrl2.topdowns, "Results/A2_vs_Ctrl2-topdowns.csv")
+write.csv(A2_vs_B.topgenes, "Results/A2_vs_B-topgenes.csv")
+write.csv(A2_vs_B.topups, "Results/A2_vs_B-topups.csv")
+write.csv(A2_vs_B.topdowns, "Results/A2_vs_B-topdowns.csv")
+write.csv(B_vs_Ctrl2.topgenes, "Results/B_vs_Ctrl2-topgenes.csv")
+write.csv(B_vs_Ctrl2.topups, "Results/B_vs_Ctrl2-topups.csv")
+write.csv(B_vs_Ctrl2.topdowns, "Results/B_vs_Ctrl2-topdowns.csv")
+```
+
+## Venn diagrams
+
+Two Venn diagrams will be created, one for the UP genes and one for the DOWN, that displays the overlaps of genes between the different contrasts. For this, the [Venny tool](http://bioinfogp.cnb.csic.es/tools/venny/) will be used. The **probe names** are extracted from the DE tables and exported as *.txt* files so they can then be used as input for *Venny*.
+
+```{r Export probe IDs for top DE genes}
+A2_vs_Ctrl2.topups.IDs <- rownames(A2_vs_Ctrl2.topups)
+A2_vs_Ctrl2.topdowns.IDs <- rownames(A2_vs_Ctrl2.topdowns)
+A2_vs_B.topups.IDs <- rownames(A2_vs_B.topups)
+A2_vs_B.topdowns.IDs <- rownames(A2_vs_B.topdowns)
+B_vs_Ctrl2.topups.IDs <- rownames(B_vs_Ctrl2.topups)
+B_vs_Ctrl2.topdowns.IDs <- rownames(B_vs_Ctrl2.topdowns)
+```
+
+```{r}
+# export as .txt files
+write.table(A2_vs_Ctrl2.topups.IDs, "Results/probeIDs_topups_A2_vs_Ctrl2.txt", row.names=F, col.names=F)
+write.table(A2_vs_Ctrl2.topdowns.IDs, "Results/probeIDs_topdowns_A2_vs_Ctrl2.txt", row.names=F, col.names=F)
+write.table(A2_vs_B.topups.IDs, "Results/probeIDs_topups_A2_vs_B.txt", row.names=F, col.names=F)
+write.table(A2_vs_B.topdowns.IDs, "Results/probeIDs_topdowns_A2_vs_B.txt", row.names=F, col.names=F)
+write.table(B_vs_Ctrl2.topups.IDs, "Results/probeIDs_topups_B_vs_Ctrl2.txt", row.names=F, col.names=F)
+write.table(B_vs_Ctrl2.topdowns.IDs, "Results/probeIDs_topdowns_B_vs_Ctrl2.txt", row.names=F, col.names=F)
+```
+
+# Save workimage
+```{r}
+save.image("MA.RData")
+savehistory("MA.Rhistory")
+```
+

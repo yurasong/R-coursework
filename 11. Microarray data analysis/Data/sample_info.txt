@@ -1,0 +1,10 @@
+Array	Type	Date	Batch	Day
+ctrlD2.1.cel	ctrl	1	1	2
+ctrlD2.2.cel	ctrl	1	1	2
+ctrlD2.3.cel	ctrl	2	2	2
+AD2.2.cel	exp	1	1	2
+AD2.5.cel	exp	1	1	2
+AD2.6.cel	exp	2	3	2
+BD1.7.cel	tpa	2	2	1
+BD1.8.cel	tpa	2	3	1
+
